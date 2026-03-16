@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { PinEntry } from "../components/PinEntry";
 
 export const metadata = {
@@ -17,7 +18,9 @@ export default function LoginPage() {
             4桁のPINを入力（キーボードまたは下のキー）
           </p>
         </div>
-        <PinEntry />
+        <Suspense fallback={null}>
+          <PinEntry />
+        </Suspense>
       </div>
     </div>
   );
