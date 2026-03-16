@@ -48,12 +48,22 @@ export function StatsCharts({ byAssignee, periodLabel = "今月" }: Props) {
     );
   }
 
-  const data = byAssignee.map((a) => ({
-    name: a.assignee,
-    架電数: a.count,
-    アポ: a.appoCount,
-    アポ率: a.count > 0 ? Math.round((a.appoCount / a.count) * 1000) / 10 : 0,
-  }));
+  const data = byAssignee.map((a) => {
+    const total = a.count;
+    const noAnswer = a.noAnswerCount;
+    const answered = total - noAnswer;
+    const appo = a.appoCount;
+    return {
+      name: a.assignee,
+      架電数: total,
+      アポ: appo,
+      アポ率: total > 0 ? Math.round((appo / total) * 1000) / 10 : 0,
+      応答なし数: noAnswer,
+      応答なし率: total > 0 ? Math.round((noAnswer / total) * 1000) / 10 : 0,
+      応答数: answered,
+      応答率: total > 0 ? Math.round((answered / total) * 1000) / 10 : 0,
+    };
+  });
 
   const renderTooltip: ComponentProps<typeof Tooltip>["content"] = ({ active, payload, label }) => {
     if (!active || !payload?.length || label == null) return null;
@@ -65,6 +75,10 @@ export function StatsCharts({ byAssignee, periodLabel = "今月" }: Props) {
           <li>架電数: {row?.架電数 ?? 0}件</li>
           <li>アポ数: {row?.アポ ?? 0}件</li>
           <li className="font-bold text-emerald-700">アポ率: {row?.アポ率 ?? 0}%</li>
+          <li>応答数: {row?.応答数 ?? 0}件</li>
+          <li className="font-bold text-sky-700">応答率: {row?.応答率 ?? 0}%</li>
+          <li>応答なし数: {row?.応答なし数 ?? 0}件</li>
+          <li className="font-bold text-zinc-800">応答なし率: {row?.応答なし率 ?? 0}%</li>
         </ul>
       </div>
     );
@@ -104,6 +118,10 @@ export function StatsCharts({ byAssignee, periodLabel = "今月" }: Props) {
                 <th className="px-4 py-3 text-base font-bold text-zinc-900 text-right">架電数</th>
                 <th className="px-4 py-3 text-base font-bold text-zinc-900 text-right">アポ数</th>
                 <th className="px-4 py-3 text-base font-bold text-emerald-800 text-right">アポ率</th>
+                <th className="px-4 py-3 text-base font-bold text-zinc-900 text-right">応答数</th>
+                <th className="px-4 py-3 text-base font-bold text-sky-800 text-right">応答率</th>
+                <th className="px-4 py-3 text-base font-bold text-zinc-900 text-right">応答なし数</th>
+                <th className="px-4 py-3 text-base font-bold text-zinc-900 text-right">応答なし率</th>
               </tr>
             </thead>
             <tbody>
@@ -116,6 +134,14 @@ export function StatsCharts({ byAssignee, periodLabel = "今月" }: Props) {
                   <td className="px-4 py-3 text-base text-zinc-700 text-right">{row.架電数}件</td>
                   <td className="px-4 py-3 text-base text-zinc-700 text-right">{row.アポ}件</td>
                   <td className="px-4 py-3 text-base font-bold text-emerald-700 text-right">{row.アポ率}%</td>
+                  <td className="px-4 py-3 text-base text-zinc-700 text-right">{row.応答数}件</td>
+                  <td className="px-4 py-3 text-base font-semibold text-sky-700 text-right">
+                    {row.応答率}%
+                  </td>
+                  <td className="px-4 py-3 text-base text-zinc-700 text-right">{row.応答なし数}件</td>
+                  <td className="px-4 py-3 text-base font-semibold text-zinc-800 text-right">
+                    {row.応答なし率}%
+                  </td>
                 </tr>
               ))}
             </tbody>

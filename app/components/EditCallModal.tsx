@@ -18,6 +18,7 @@ type Call = {
   assignee: { id: string; name: string; color: string | null } | null;
   isAppointment: boolean;
   createdAt: string;
+  status?: "APPOINTMENT" | "NO_ANSWER" | "OTHER";
 };
 
 type Props = {
@@ -31,15 +32,29 @@ export function EditCallModal({ call, onClose }: Props) {
   const [destination, setDestination] = useState("");
   const [assigneeId, setAssigneeId] = useState<string | null>(null);
   const [memo, setMemo] = useState("");
+  const [dateInput, setDateInput] = useState("");
   const [isAppointment, setIsAppointment] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [resultStatus, setResultStatus] = useState<"APPOINTMENT" | "NO_ANSWER" | "OTHER">("OTHER");
 
   useEffect(() => {
     if (!call) return;
     setDestination(call.destination);
     setAssigneeId(call.assigneeId ?? null);
     setMemo(call.memo ?? "");
+    const d = new Date(call.createdAt);
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    setDateInput(`${yyyy}-${mm}-${dd}`);
     setIsAppointment(call.isAppointment);
+    setResultStatus(
+      call.status === "APPOINTMENT" || call.status === "NO_ANSWER" || call.status === "OTHER"
+        ? call.status
+        : call.isAppointment
+          ? "APPOINTMENT"
+          : "OTHER"
+    );
   }, [call]);
 
   useEffect(() => {
@@ -65,6 +80,7 @@ export function EditCallModal({ call, onClose }: Props) {
     if (!destination.trim()) return;
     setSaving(true);
     try {
+      const isAppointmentFlag = resultStatus === "APPOINTMENT" || isAppointment;
       const res = await fetch(`/api/calls/${call.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -72,7 +88,9 @@ export function EditCallModal({ call, onClose }: Props) {
           destination: destination.trim(),
           assigneeId: assigneeId || null,
           memo: memo.trim() || null,
-          isAppointment,
+          isAppointment: isAppointmentFlag,
+          status: resultStatus,
+          createdAt: dateInput ? new Date(`${dateInput}T12:00:00`).toISOString() : undefined,
         }),
       });
       if (!res.ok) throw new Error("Failed");
@@ -90,6 +108,18 @@ export function EditCallModal({ call, onClose }: Props) {
       <div className="w-full max-w-sm rounded-xl bg-white p-6 shadow-lg">
         <h3 className="text-lg font-semibold text-zinc-900">架電を編集</h3>
         <form onSubmit={handleSubmit} className="mt-4 space-y-4">
+          <div>
+            <label htmlFor="edit-date" className="block text-sm font-medium text-zinc-700">
+              日付
+            </label>
+            <input
+              id="edit-date"
+              type="date"
+              value={dateInput}
+              onChange={(e) => setDateInput(e.target.value)}
+              className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-zinc-900"
+            />
+          </div>
           <div>
             <label htmlFor="edit-destination" className="block text-sm font-medium text-zinc-700">
               電話先（必須）
@@ -125,16 +155,53 @@ export function EditCallModal({ call, onClose }: Props) {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <input
-              id="edit-appo"
-              type="checkbox"
-              checked={isAppointment}
-              onChange={(e) => setIsAppointment(e.target.checked)}
-              className="h-4 w-4 rounded border-zinc-300 text-zinc-900"
-            />
-            <label htmlFor="edit-appo" className="text-sm font-medium text-zinc-700">
-              アポになった
-            </label>
+            <fieldset className="space-y-2">
+              <legend className="text-sm font-medium text-zinc-700">結果</legend>
+              <div className="flex flex-col gap-1.5 text-sm text-zinc-700">
+                <label className="inline-flex items-center gap-2">
+                  <input
+                    type="radio"
+                    name="edit-call-result"
+                    value="APPOINTMENT"
+                    checked={resultStatus === "APPOINTMENT"}
+                    onChange={() => {
+                      setResultStatus("APPOINTMENT");
+                      setIsAppointment(true);
+                    }}
+                    className="h-4 w-4 border-zinc-300 text-zinc-900"
+                  />
+                  <span>アポになった</span>
+                </label>
+                <label className="inline-flex items-center gap-2">
+                  <input
+                    type="radio"
+                    name="edit-call-result"
+                    value="NO_ANSWER"
+                    checked={resultStatus === "NO_ANSWER"}
+                    onChange={() => {
+                      setResultStatus("NO_ANSWER");
+                      setIsAppointment(false);
+                    }}
+                    className="h-4 w-4 border-zinc-300 text-zinc-900"
+                  />
+                  <span>未応答（電話に出なかった）</span>
+                </label>
+                <label className="inline-flex items-center gap-2">
+                  <input
+                    type="radio"
+                    name="edit-call-result"
+                    value="OTHER"
+                    checked={resultStatus === "OTHER"}
+                    onChange={() => {
+                      setResultStatus("OTHER");
+                      setIsAppointment(false);
+                    }}
+                    className="h-4 w-4 border-zinc-300 text-zinc-900"
+                  />
+                  <span>つながったがアポにならず</span>
+                </label>
+              </div>
+            </fieldset>
           </div>
           <div>
             <label htmlFor="edit-memo" className="block text-sm font-medium text-zinc-700">

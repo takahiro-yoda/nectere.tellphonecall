@@ -41,21 +41,43 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   const body = await request.json();
-  const { destination, memo, createdAt, assigneeId, isAppointment } = body;
+  const { destination, memo, createdAt, assigneeId, isAppointment, status } = body;
 
   if (!destination || typeof destination !== "string" || destination.trim() === "") {
     return NextResponse.json({ error: "destination is required" }, { status: 400 });
   }
 
-  const created = await prisma.call.create({
-    data: {
-      destination: destination.trim(),
-      memo: memo != null ? String(memo).trim() || null : null,
-      assigneeId: assigneeId == null || assigneeId === "" ? null : assigneeId,
-      isAppointment: Boolean(isAppointment),
-      createdAt: createdAt ? new Date(createdAt) : undefined,
-    },
-    include: { assignee: true },
-  });
-  return NextResponse.json(created);
+  try {
+    const created = await prisma.call.create({
+      data: {
+        destination: destination.trim(),
+        memo: memo != null ? String(memo).trim() || null : null,
+        assignee:
+          assigneeId == null || assigneeId === ""
+            ? undefined
+            : {
+                connect: { id: assigneeId },
+              },
+        isAppointment: Boolean(isAppointment),
+        status:
+          status === "APPOINTMENT" || status === "NO_ANSWER" || status === "OTHER"
+            ? status
+            : Boolean(isAppointment)
+              ? "APPOINTMENT"
+              : "OTHER",
+        createdAt: createdAt ? new Date(createdAt) : undefined,
+      },
+      include: { assignee: true },
+    });
+    return NextResponse.json(created);
+  } catch (e: any) {
+    console.error("Failed to create call", e);
+    return NextResponse.json(
+      {
+        error: "サーバー内部エラーです。管理者にお問い合わせください。",
+        detail: e?.message ?? String(e),
+      },
+      { status: 500 },
+    );
+  }
 }

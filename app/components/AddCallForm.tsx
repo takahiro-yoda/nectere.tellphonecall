@@ -21,9 +21,11 @@ export function AddCallForm({ onAdded }: Props) {
   const [assigneeId, setAssigneeId] = useState<string | null>(null);
   const [memo, setMemo] = useState("");
   const [isAppointment, setIsAppointment] = useState(false);
+  const [resultStatus, setResultStatus] = useState<"APPOINTMENT" | "NO_ANSWER" | "OTHER">("OTHER");
   const [dateInput, setDateInput] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [open, setOpen] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   function setDefaultDate() {
     const now = new Date();
@@ -73,11 +75,13 @@ export function AddCallForm({ onAdded }: Props) {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!destination.trim()) return;
+    setError(null);
     setSubmitting(true);
     try {
       const createdAt = dateInput
         ? new Date(`${dateInput}T12:00:00`).toISOString()
         : undefined;
+      const isAppointmentFlag = resultStatus === "APPOINTMENT" || isAppointment;
       const res = await fetch("/api/calls", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -85,19 +89,52 @@ export function AddCallForm({ onAdded }: Props) {
           destination: destination.trim(),
           assigneeId: assigneeId || null,
           memo: memo.trim() || null,
-          isAppointment,
+          isAppointment: isAppointmentFlag,
+          status: resultStatus,
           createdAt,
         }),
       });
-      if (!res.ok) throw new Error("Failed to add");
+      if (!res.ok) {
+        let message = `登録に失敗しました (status: ${res.status})`;
+        try {
+          const contentType = res.headers.get("content-type") || "";
+          if (contentType.includes("application/json")) {
+            const data = await res.json();
+            if (data) {
+              const parts: string[] = [];
+              if (typeof data.error === "string" && data.error.trim() !== "") {
+                parts.push(data.error.trim());
+              }
+              if (typeof data.detail === "string" && data.detail.trim() !== "") {
+                parts.push(`detail: ${data.detail.trim()}`);
+              }
+              if (parts.length > 0) {
+                message = parts.join(" / ");
+              }
+            }
+          } else {
+            const text = await res.text();
+            if (text.trim() !== "") {
+              message = text;
+            }
+          }
+        } catch {
+          // ignore parse error and keep default message
+        }
+        setError(message);
+        return;
+      }
       setDestination("");
       setAssigneeId(null);
       setMemo("");
       setIsAppointment(false);
+      setResultStatus("OTHER");
       setDefaultDate();
       onAdded?.();
       router.refresh();
       setOpen(false);
+    } catch (_e) {
+      setError("通信エラーが発生しました");
     } finally {
       setSubmitting(false);
     }
@@ -171,18 +208,53 @@ export function AddCallForm({ onAdded }: Props) {
                   )}
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                <input
-                  id="call-appo"
-                  type="checkbox"
-                  checked={isAppointment}
-                  onChange={(e) => setIsAppointment(e.target.checked)}
-                  className="h-4 w-4 rounded border-zinc-300 text-zinc-900"
-                />
-                <label htmlFor="call-appo" className="text-sm font-medium text-zinc-700">
-                  アポになった
-                </label>
-              </div>
+              <fieldset className="space-y-2">
+                <legend className="text-sm font-medium text-zinc-700">結果</legend>
+                <div className="flex flex-col gap-1.5 text-sm text-zinc-700">
+                  <label className="inline-flex items-center gap-2">
+                    <input
+                      type="radio"
+                      name="call-result"
+                      value="APPOINTMENT"
+                      checked={resultStatus === "APPOINTMENT"}
+                      onChange={() => {
+                        setResultStatus("APPOINTMENT");
+                        setIsAppointment(true);
+                      }}
+                      className="h-4 w-4 border-zinc-300 text-zinc-900"
+                    />
+                    <span>アポになった</span>
+                  </label>
+                  <label className="inline-flex items-center gap-2">
+                    <input
+                      type="radio"
+                      name="call-result"
+                      value="NO_ANSWER"
+                      checked={resultStatus === "NO_ANSWER"}
+                      onChange={() => {
+                        setResultStatus("NO_ANSWER");
+                        setIsAppointment(false);
+                      }}
+                      className="h-4 w-4 border-zinc-300 text-zinc-900"
+                    />
+                    <span>未応答（電話に出なかった）</span>
+                  </label>
+                  <label className="inline-flex items-center gap-2">
+                    <input
+                      type="radio"
+                      name="call-result"
+                      value="OTHER"
+                      checked={resultStatus === "OTHER"}
+                      onChange={() => {
+                        setResultStatus("OTHER");
+                        setIsAppointment(false);
+                      }}
+                      className="h-4 w-4 border-zinc-300 text-zinc-900"
+                    />
+                    <span>つながったがアポにならず</span>
+                  </label>
+                </div>
+              </fieldset>
               <div>
                 <label htmlFor="call-memo" className="block text-sm font-medium text-zinc-700">
                   メモ（任意）
@@ -212,6 +284,11 @@ export function AddCallForm({ onAdded }: Props) {
                   {submitting ? "記録中…" : "記録"}
                 </button>
               </div>
+              {error && (
+                <p className="pt-2 text-sm text-red-500" role="alert">
+                  {error}
+                </p>
+              )}
             </form>
           </div>
         </div>

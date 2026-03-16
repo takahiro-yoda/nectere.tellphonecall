@@ -39,6 +39,7 @@ export type AssigneeStat = {
   assignee: string;
   count: number;
   appoCount: number;
+  noAnswerCount: number;
 };
 
 export type StatsResult = {
@@ -58,31 +59,32 @@ export async function getStats(date: Date = new Date()): Promise<StatsResult> {
   const [weekCalls, monthCalls] = await Promise.all([
     prisma.call.findMany({
       where: { createdAt: { gte: weekStart, lte: weekEnd } },
-      select: { assigneeId: true, assignee: { select: { name: true } }, isAppointment: true },
+      include: { assignee: { select: { name: true } } },
     }),
     prisma.call.findMany({
       where: { createdAt: { gte: monthStart, lte: monthEnd } },
-      select: { assigneeId: true, assignee: { select: { name: true } }, isAppointment: true },
+      include: { assignee: { select: { name: true } } },
     }),
   ]);
 
-  function aggregate(
-    calls: { assignee: { name: string } | null; isAppointment: boolean }[]
-  ) {
-    const byAssigneeMap = new Map<string, { count: number; appoCount: number }>();
+  function aggregate(calls: any[]) {
+    const byAssigneeMap = new Map<string, { count: number; appoCount: number; noAnswerCount: number }>();
     let appoCount = 0;
     for (const c of calls) {
       const name = c.assignee?.name?.trim() || "（未設定）";
-      const cur = byAssigneeMap.get(name) ?? { count: 0, appoCount: 0 };
+      const cur = byAssigneeMap.get(name) ?? { count: 0, appoCount: 0, noAnswerCount: 0 };
       cur.count += 1;
       if (c.isAppointment) {
         cur.appoCount += 1;
         appoCount += 1;
       }
+      if (c.status === "NO_ANSWER") {
+        cur.noAnswerCount += 1;
+      }
       byAssigneeMap.set(name, cur);
     }
     const byAssignee: AssigneeStat[] = Array.from(byAssigneeMap.entries()).map(
-      ([assignee, { count, appoCount: ac }]) => ({ assignee, count, appoCount: ac })
+      ([assignee, { count, appoCount: ac, noAnswerCount }]) => ({ assignee, count, appoCount: ac, noAnswerCount })
     );
     byAssignee.sort((a, b) => b.count - a.count);
     return {
@@ -135,24 +137,32 @@ export async function getPeriodStats(view: ViewPeriod): Promise<PeriodStats> {
         }),
     prisma.call.findMany({
       where: { createdAt: { gte: range.start, lte: range.end } },
-      select: { assigneeId: true, assignee: { select: { name: true } }, isAppointment: true },
+      include: { assignee: { select: { name: true } } },
     }),
   ]);
 
-  const byAssigneeMap = new Map<string, { count: number; appoCount: number }>();
+  const byAssigneeMap = new Map<string, { count: number; appoCount: number; noAnswerCount: number }>();
   let appoCount = 0;
   for (const c of calls) {
     const name = c.assignee?.name?.trim() || "（未設定）";
-    const cur = byAssigneeMap.get(name) ?? { count: 0, appoCount: 0 };
+    const cur = byAssigneeMap.get(name) ?? { count: 0, appoCount: 0, noAnswerCount: 0 };
     cur.count += 1;
     if (c.isAppointment) {
       cur.appoCount += 1;
       appoCount += 1;
     }
+    if ((c as any).status === "NO_ANSWER") {
+      cur.noAnswerCount += 1;
+    }
     byAssigneeMap.set(name, cur);
   }
   const byAssignee: AssigneeStat[] = Array.from(byAssigneeMap.entries()).map(
-    ([assignee, { count: n, appoCount: ac }]) => ({ assignee, count: n, appoCount: ac })
+    ([assignee, { count: n, appoCount: ac, noAnswerCount }]) => ({
+      assignee,
+      count: n,
+      appoCount: ac,
+      noAnswerCount,
+    })
   );
   byAssignee.sort((a, b) => b.count - a.count);
 
@@ -181,16 +191,17 @@ export type DailyStat = {
   label: string; // M/D
   count: number;
   appoCount: number;
+  noAnswerCount: number;
 };
 
 /** 指定期間の日別架電数・アポ数。期間内の全日付を返す（0件の日も含む） */
 export async function getDailyStats(start: Date, end: Date): Promise<DailyStat[]> {
   const calls = await prisma.call.findMany({
     where: { createdAt: { gte: start, lte: end } },
-    select: { createdAt: true, isAppointment: true },
+    select: { createdAt: true, isAppointment: true, status: true },
   });
 
-  const dayMap = new Map<string, { count: number; appoCount: number }>();
+  const dayMap = new Map<string, { count: number; appoCount: number; noAnswerCount: number }>();
   const cur = new Date(start);
   cur.setHours(0, 0, 0, 0);
   const endDay = new Date(end);
@@ -202,7 +213,7 @@ export async function getDailyStats(start: Date, end: Date): Promise<DailyStat[]
       String(cur.getMonth() + 1).padStart(2, "0") +
       "-" +
       String(cur.getDate()).padStart(2, "0");
-    dayMap.set(key, { count: 0, appoCount: 0 });
+    dayMap.set(key, { count: 0, appoCount: 0, noAnswerCount: 0 });
     cur.setDate(cur.getDate() + 1);
   }
 
@@ -218,6 +229,7 @@ export async function getDailyStats(start: Date, end: Date): Promise<DailyStat[]
     if (entry) {
       entry.count += 1;
       if (c.isAppointment) entry.appoCount += 1;
+      if ((c as any).status === "NO_ANSWER") entry.noAnswerCount += 1;
     }
   }
 
@@ -233,12 +245,14 @@ export async function getDailyStats(start: Date, end: Date): Promise<DailyStat[]
       String(iter.getMonth() + 1).padStart(2, "0") +
       "-" +
       String(iter.getDate()).padStart(2, "0");
-    const { count, appoCount } = dayMap.get(key) ?? { count: 0, appoCount: 0 };
+    const { count, appoCount, noAnswerCount } =
+      dayMap.get(key) ?? { count: 0, appoCount: 0, noAnswerCount: 0 };
     result.push({
       date: key,
       label: `${iter.getMonth() + 1}/${iter.getDate()}`,
       count,
       appoCount,
+      noAnswerCount,
     });
     iter.setDate(iter.getDate() + 1);
   }
@@ -252,23 +266,31 @@ export async function getStatsForDateRange(
 ): Promise<CustomPeriodStats> {
   const calls = await prisma.call.findMany({
     where: { createdAt: { gte: start, lte: end } },
-    select: { assigneeId: true, assignee: { select: { name: true } }, isAppointment: true },
+    include: { assignee: { select: { name: true } } },
   });
 
-  const byAssigneeMap = new Map<string, { count: number; appoCount: number }>();
+  const byAssigneeMap = new Map<string, { count: number; appoCount: number; noAnswerCount: number }>();
   let appoCount = 0;
   for (const c of calls) {
     const name = c.assignee?.name?.trim() || "（未設定）";
-    const cur = byAssigneeMap.get(name) ?? { count: 0, appoCount: 0 };
+    const cur = byAssigneeMap.get(name) ?? { count: 0, appoCount: 0, noAnswerCount: 0 };
     cur.count += 1;
     if (c.isAppointment) {
       cur.appoCount += 1;
       appoCount += 1;
     }
+    if ((c as any).status === "NO_ANSWER") {
+      cur.noAnswerCount += 1;
+    }
     byAssigneeMap.set(name, cur);
   }
   const byAssignee: AssigneeStat[] = Array.from(byAssigneeMap.entries()).map(
-    ([assignee, { count: n, appoCount: ac }]) => ({ assignee, count: n, appoCount: ac })
+    ([assignee, { count: n, appoCount: ac, noAnswerCount }]) => ({
+      assignee,
+      count: n,
+      appoCount: ac,
+      noAnswerCount,
+    })
   );
   byAssignee.sort((a, b) => b.count - a.count);
 

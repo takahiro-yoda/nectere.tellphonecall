@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 const COOKIE_NAME = "nectere_access";
-const JUST_SAW_AUTH_COOKIE = "nectere_just_saw_auth";
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -25,14 +24,7 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  // 認証済み：直前に認証画面を見た直後でなければ、一瞬認証画面を経由（自己満）
-  const justSawAuth = request.cookies.get(JUST_SAW_AUTH_COOKIE)?.value;
-  if (!justSawAuth) {
-    const authSuccessUrl = new URL("/auth/success", request.url);
-    authSuccessUrl.searchParams.set("from", pathname);
-    return NextResponse.redirect(authSuccessUrl);
-  }
-
+  // 認証済みであればそのまま表示
   return NextResponse.next();
 }
 

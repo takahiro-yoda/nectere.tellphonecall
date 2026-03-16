@@ -22,7 +22,15 @@ model Call {
   assigneeId   String?
   assignee     Assignee?  @relation(fields: [assigneeId], references: [id], onDelete: SetNull)
   isAppointment Boolean   @default(false)
+  /// 架電結果: APPOINTMENT=アポ, NO_ANSWER=未応答, OTHER=つながったがアポにならず
+  status        CallStatus @default(OTHER)
   createdAt    DateTime  @default(now())
+}
+
+enum CallStatus {
+  APPOINTMENT
+  NO_ANSWER
+  OTHER
 }
 
 model Goal {

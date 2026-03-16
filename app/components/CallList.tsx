@@ -20,6 +20,7 @@ type Call = {
   assignee: { id: string; name: string; color: string | null } | null;
   isAppointment: boolean;
   createdAt: string;
+  status?: "APPOINTMENT" | "NO_ANSWER" | "OTHER";
 };
 
 type RangeKey = "week" | "last-week" | "month" | "last-month";
@@ -241,12 +242,18 @@ export function CallList({
                         </span>
                       </td>
                       <td className="px-5 py-4">
-                        {call.isAppointment ? (
+                        {call.status === "APPOINTMENT" || call.isAppointment ? (
                           <span className="inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-800">
                             アポ
                           </span>
+                        ) : call.status === "NO_ANSWER" ? (
+                          <span className="inline-flex items-center rounded-full bg-orange-100 px-2.5 py-1 text-xs font-semibold text-orange-800">
+                            未応答
+                          </span>
                         ) : (
-                          <span className="text-zinc-300">—</span>
+                          <span className="inline-flex items-center rounded-full bg-zinc-100 px-2.5 py-1 text-xs font-semibold text-zinc-700">
+                            通話のみ
+                          </span>
                         )}
                       </td>
                       <td className="max-w-[220px] px-5 py-4">

@@ -7,19 +7,41 @@ export async function PATCH(
 ) {
   const { id } = await params;
   const body = await _request.json();
-  const { destination, memo, assigneeId, isAppointment } = body;
+  const { destination, memo, assigneeId, isAppointment, status, createdAt } = body;
 
   const data: {
     destination?: string;
     memo?: string | null;
-    assigneeId?: string | null;
+    assignee?:
+      | {
+          connect: { id: string };
+        }
+      | {
+          disconnect: true;
+        };
     isAppointment?: boolean;
+    status?: "APPOINTMENT" | "NO_ANSWER" | "OTHER";
+    createdAt?: Date;
   } = {};
   if (typeof destination === "string" && destination.trim() !== "")
     data.destination = destination.trim();
   if (memo !== undefined) data.memo = memo != null ? String(memo).trim() || null : null;
-  if (assigneeId !== undefined) data.assigneeId = assigneeId == null || assigneeId === "" ? null : assigneeId;
+  if (assigneeId !== undefined) {
+    data.assignee =
+      assigneeId == null || assigneeId === ""
+        ? { disconnect: true }
+        : {
+            connect: { id: assigneeId },
+          };
+  }
   if (typeof isAppointment === "boolean") data.isAppointment = isAppointment;
+  if (status === "APPOINTMENT" || status === "NO_ANSWER" || status === "OTHER") data.status = status;
+  if (createdAt) {
+    const d = new Date(createdAt);
+    if (!Number.isNaN(d.getTime())) {
+      data.createdAt = d;
+    }
+  }
 
   const updated = await prisma.call.update({
     where: { id },
