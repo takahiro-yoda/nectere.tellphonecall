@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ComponentProps } from "react";
 import {
   BarChart,
   Bar,
@@ -55,9 +55,9 @@ export function StatsCharts({ byAssignee, periodLabel = "今月" }: Props) {
     アポ率: a.count > 0 ? Math.round((a.appoCount / a.count) * 1000) / 10 : 0,
   }));
 
-  const renderTooltip = ({ active, payload, label }: { active?: boolean; payload?: { name: string; value: number }[]; label?: string }) => {
-    if (!active || !payload?.length || !label) return null;
-    const row = data.find((d) => d.name === label);
+  const renderTooltip: ComponentProps<typeof Tooltip>["content"] = ({ active, payload, label }) => {
+    if (!active || !payload?.length || label == null) return null;
+    const row = data.find((d) => d.name === String(label));
     return (
       <div className="rounded-lg border-2 border-zinc-300 bg-white px-4 py-3 shadow-lg">
         <p className="mb-2 text-lg font-bold text-zinc-900">{label}</p>
