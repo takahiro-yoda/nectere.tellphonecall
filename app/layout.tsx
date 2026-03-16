@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "架電数ダッシュボード",
-  description: "社内架電数を記録し、モチベーションを高めるダッシュボード",
+  title: "Nectere Call Metrics",
+  description: "チームの架電パフォーマンスをすばやく俯瞰できるメトリクスビュー",
 };
 
 export default function RootLayout({

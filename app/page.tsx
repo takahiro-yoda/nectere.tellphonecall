@@ -48,8 +48,15 @@ export default async function DashboardPage({
   return (
     <div className="min-h-screen bg-zinc-50">
       <header className="border-b border-zinc-200 bg-white">
-        <div className="mx-auto flex max-w-4xl items-center justify-between px-4 py-4">
-          <h1 className="text-xl font-bold text-zinc-900">架電数ダッシュボード</h1>
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
+          <div className="flex items-baseline gap-2">
+            <h1 className="text-xl font-bold tracking-tight text-zinc-900">
+              Nectere Call Metrics
+            </h1>
+            <span className="text-xs font-medium text-zinc-400">
+              daily activity overview
+            </span>
+          </div>
           <div className="flex items-center gap-3">
             <Link
               href="/admin"
@@ -62,51 +69,63 @@ export default async function DashboardPage({
         </div>
       </header>
 
-      <main className="mx-auto max-w-4xl px-4 py-8">
-        <StatsHero
-          weekCount={counts.weekCount}
-          monthCount={counts.monthCount}
-          weekGoal={goals.week}
-          monthGoal={goals.month}
-        />
-        <div className="mt-6">
-          <GoalRemain
-            weekCount={counts.weekCount}
-            monthCount={counts.monthCount}
-            weekGoal={goals.week}
-            monthGoal={goals.month}
-          />
-        </div>
-        <div className="mt-8">
-          <AppoRateBlock
-            weekAppoRate={stats.weekAppoRate}
-            monthAppoRate={stats.monthAppoRate}
-            weekAppoCount={stats.weekAppoCount}
-            monthAppoCount={stats.monthAppoCount}
-            weekTotal={stats.weekTotal}
-            monthTotal={stats.monthTotal}
-          />
-        </div>
-
-        <div className="mt-10 border-t border-zinc-200 pt-10">
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-            <h2 className="text-base font-semibold text-zinc-800">パフォーマンス</h2>
-            <Suspense fallback={<div className="h-9 w-64 rounded-lg bg-zinc-200 animate-pulse" />}>
-              <PeriodSelector />
-            </Suspense>
-          </div>
-          <div className="mt-4 space-y-6">
-            {dailyStats.length > 0 && (
-              <DailyChart dailyStats={dailyStats} periodLabel={displayLabel} />
-            )}
-            <StatsCharts
-              byAssignee={displayStats.byAssignee}
-              periodLabel={displayLabel}
+      <main className="mx-auto max-w-6xl px-4 py-8">
+        <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1fr,340px] lg:gap-10">
+          <div className="min-w-0">
+            <StatsHero
+              weekCount={counts.weekCount}
+              monthCount={counts.monthCount}
+              weekGoal={goals.week}
+              monthGoal={goals.month}
             />
+            <div className="mt-6">
+              <GoalRemain
+                weekCount={counts.weekCount}
+                monthCount={counts.monthCount}
+                weekGoal={goals.week}
+                monthGoal={goals.month}
+              />
+            </div>
+            <div className="mt-8">
+              <AppoRateBlock
+                weekAppoRate={stats.weekAppoRate}
+                monthAppoRate={stats.monthAppoRate}
+                weekAppoCount={stats.weekAppoCount}
+                monthAppoCount={stats.monthAppoCount}
+                weekTotal={stats.weekTotal}
+                monthTotal={stats.monthTotal}
+              />
+            </div>
+
+            <div className="mt-10 border-t border-zinc-200 pt-10">
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                <h2 className="text-base font-semibold text-zinc-800">パフォーマンス</h2>
+                <Suspense fallback={<div className="h-9 w-64 rounded-lg bg-zinc-200 animate-pulse" />}>
+                  <PeriodSelector />
+                </Suspense>
+              </div>
+              <div className="mt-4 space-y-6">
+                {dailyStats.length > 0 && (
+                  <DailyChart dailyStats={dailyStats} periodLabel={displayLabel} />
+                )}
+                <StatsCharts
+                  byAssignee={displayStats.byAssignee}
+                  periodLabel={displayLabel}
+                />
+              </div>
+            </div>
           </div>
-        </div>
-        <div className="mt-8">
-          <CallList defaultView={view} customFrom={customFromTo?.from} customTo={customFromTo?.to} />
+
+          <aside className="lg:sticky lg:top-8 lg:self-start">
+            <div className="flex h-full flex-col lg:min-h-[calc(100vh-6rem)] lg:max-h-[calc(100vh-6rem)]">
+              <CallList
+                alwaysOpen
+                defaultView={view}
+                customFrom={customFromTo?.from}
+                customTo={customFromTo?.to}
+              />
+            </div>
+          </aside>
         </div>
       </main>
     </div>

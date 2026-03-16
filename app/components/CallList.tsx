@@ -29,6 +29,8 @@ type Props = {
   defaultView?: ViewPeriod;
   customFrom?: string;
   customTo?: string;
+  /**  true のときは開閉ボタンを出さず一覧を常に表示（右サイドバー用） */
+  alwaysOpen?: boolean;
 };
 
 export function CallList({
@@ -36,9 +38,10 @@ export function CallList({
   defaultView = "this-week",
   customFrom,
   customTo,
+  alwaysOpen = false,
 }: Props) {
   const isCustomRange = Boolean(customFrom && customTo);
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(alwaysOpen);
   const [range, setRange] = useState<RangeKey>(VIEW_TO_RANGE[defaultView] as RangeKey);
   const [calls, setCalls] = useState<Call[]>([]);
   const [loading, setLoading] = useState(false);
@@ -77,7 +80,7 @@ export function CallList({
   }, [open, onOpenChange]);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open && !alwaysOpen) return;
     setLoading(true);
     const url = isCustomRange
       ? `/api/calls?range=custom&from=${encodeURIComponent(customFrom!)}&to=${encodeURIComponent(customTo!)}`
@@ -86,23 +89,36 @@ export function CallList({
       .then((res) => res.json())
       .then((data) => setCalls(Array.isArray(data) ? data : []))
       .finally(() => setLoading(false));
-  }, [open, range, editingCall, isCustomRange, customFrom, customTo]);
+  }, [open, alwaysOpen, range, editingCall, isCustomRange, customFrom, customTo]);
 
   function toggle() {
     setOpen((o) => !o);
   }
 
+  const showList = open || alwaysOpen;
+
   return (
-    <div className="w-full">
-      <button
-        type="button"
-        onClick={toggle}
-        className="rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 shadow-sm transition hover:bg-zinc-50"
-      >
-        {open ? "電話先一覧を閉じる" : "電話先一覧を表示"}
-      </button>
-      {open && (
-        <div className="mt-4 overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm">
+    <div className={alwaysOpen ? "flex h-full min-h-0 flex-col" : "w-full"}>
+      {!alwaysOpen && (
+        <button
+          type="button"
+          onClick={toggle}
+          className="rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 shadow-sm transition hover:bg-zinc-50"
+        >
+          {open ? "電話先一覧を閉じる" : "電話先一覧を表示"}
+        </button>
+      )}
+      {alwaysOpen && (
+        <h2 className="mb-3 text-base font-semibold text-zinc-800">電話先一覧</h2>
+      )}
+      {showList && (
+        <div
+          className={
+            alwaysOpen
+              ? "flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm"
+              : "mt-4 overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm"
+          }
+        >
           {isCustomRange ? (
             <div className="border-b border-zinc-200 bg-zinc-50/80 px-4 py-3.5 text-sm font-medium text-zinc-700">
               指定期間（{customFrom} 〜 {customTo}）
@@ -159,8 +175,8 @@ export function CallList({
               「{searchQuery.trim()}」に一致する架電はありません。
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left">
+            <div className={alwaysOpen ? "flex-1 overflow-auto overflow-x-auto" : "overflow-x-auto"}>
+              <table className="w-full min-w-[320px] text-left">
                 <thead>
                   <tr className="border-b border-zinc-200 bg-zinc-50">
                     <th className="px-5 py-3.5 text-xs font-semibold uppercase tracking-wider text-zinc-500">
