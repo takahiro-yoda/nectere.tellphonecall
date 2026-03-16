@@ -47,9 +47,13 @@ export type StatsResult = {
   weekTotal: number;
   weekAppoCount: number;
   weekAppoRate: number | null; // 0-100 or null if no calls
+  weekNoAnswerCount: number;
+  weekResponseRate: number | null;
   monthTotal: number;
   monthAppoCount: number;
   monthAppoRate: number | null;
+  monthNoAnswerCount: number;
+  monthResponseRate: number | null;
 };
 
 export async function getStats(date: Date = new Date()): Promise<StatsResult> {
@@ -70,6 +74,7 @@ export async function getStats(date: Date = new Date()): Promise<StatsResult> {
   function aggregate(calls: any[]) {
     const byAssigneeMap = new Map<string, { count: number; appoCount: number; noAnswerCount: number }>();
     let appoCount = 0;
+    let noAnswerCount = 0;
     for (const c of calls) {
       const name = c.assignee?.name?.trim() || "（未設定）";
       const cur = byAssigneeMap.get(name) ?? { count: 0, appoCount: 0, noAnswerCount: 0 };
@@ -80,6 +85,7 @@ export async function getStats(date: Date = new Date()): Promise<StatsResult> {
       }
       if (c.status === "NO_ANSWER") {
         cur.noAnswerCount += 1;
+        noAnswerCount += 1;
       }
       byAssigneeMap.set(name, cur);
     }
@@ -91,7 +97,12 @@ export async function getStats(date: Date = new Date()): Promise<StatsResult> {
       byAssignee,
       total: calls.length,
       appoCount,
+      noAnswerCount,
       appoRate: calls.length > 0 ? Math.round((appoCount / calls.length) * 1000) / 10 : null,
+      responseRate:
+        calls.length > 0
+          ? Math.round((((calls.length - noAnswerCount) / calls.length) * 1000)) / 10
+          : null,
     };
   }
 
@@ -103,9 +114,13 @@ export async function getStats(date: Date = new Date()): Promise<StatsResult> {
     weekTotal: weekAgg.total,
     weekAppoCount: weekAgg.appoCount,
     weekAppoRate: weekAgg.appoRate,
+    weekNoAnswerCount: weekAgg.noAnswerCount,
+    weekResponseRate: weekAgg.responseRate,
     monthTotal: monthAgg.total,
     monthAppoCount: monthAgg.appoCount,
     monthAppoRate: monthAgg.appoRate,
+    monthNoAnswerCount: monthAgg.noAnswerCount,
+    monthResponseRate: monthAgg.responseRate,
   };
 }
 
@@ -198,7 +213,6 @@ export type DailyStat = {
 export async function getDailyStats(start: Date, end: Date): Promise<DailyStat[]> {
   const calls = await prisma.call.findMany({
     where: { createdAt: { gte: start, lte: end } },
-    select: { createdAt: true, isAppointment: true, status: true },
   });
 
   const dayMap = new Map<string, { count: number; appoCount: number; noAnswerCount: number }>();

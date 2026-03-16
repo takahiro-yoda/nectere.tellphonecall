@@ -94,6 +94,10 @@ export default async function DashboardPage({
                 monthAppoCount={stats.monthAppoCount}
                 weekTotal={stats.weekTotal}
                 monthTotal={stats.monthTotal}
+                weekResponseRate={stats.weekResponseRate}
+                monthResponseRate={stats.monthResponseRate}
+                weekNoAnswerCount={stats.weekNoAnswerCount}
+                monthNoAnswerCount={stats.monthNoAnswerCount}
               />
             </div>
 
