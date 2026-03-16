@@ -1,0 +1,34 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Assignee {
+  id        String  @id @default(cuid())
+  name      String
+  color     String? // タグ表示用（例: #3b82f6）
+  sortOrder Int     @default(0)
+  calls     Call[]
+}
+
+model Call {
+  id            String    @id @default(cuid())
+  destination   String
+  memo         String?
+  assigneeId   String?
+  assignee     Assignee?  @relation(fields: [assigneeId], references: [id], onDelete: SetNull)
+  isAppointment Boolean   @default(false)
+  createdAt    DateTime  @default(now())
+}
+
+model Goal {
+  id     String @id @default(cuid())
+  type   String // "week" | "month"
+  value  Int
+  period String // e.g. "2025-W11", "2025-03"
+  @@unique([type, period])
+}
