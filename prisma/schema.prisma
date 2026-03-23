@@ -40,3 +40,75 @@ model Goal {
   period String // e.g. "2025-W11", "2025-03"
   @@unique([type, period])
 }
+
+model Contract {
+  id       String   @id @default(cuid())
+  signedAt DateTime @default(now())
+  memo     String?
+}
+
+model ContractGoal {
+  id     String @id @default(cuid())
+  type   String // "week" | "month"
+  value  Int
+  period String
+  @@unique([type, period])
+}
+
+/// 単一行。標準単価・経費（試算用）
+model SalesConfig {
+  id                           String @id @default("default")
+  defaultRevenuePerContractYen Int    @default(0)
+  /// 月次の固定費（家賃・固定給など）
+  monthlyFixedExpenseYen       Int    @default(0)
+  /// 契約1件あたりの変動費・原価（歩合・教材費など）
+  variableCostPerContractYen   Int    @default(0)
+}
+
+/// 料金表の「列」— 顧客区分（例: 中学生（団）、高校生（個）など）
+model PricingSegment {
+  id        String             @id @default(cuid())
+  name      String             @default("新しい区分")
+  sortOrder Int                @default(0)
+  cells     PricingPriceCell[]
+}
+
+/// 料金表の「行」— プラン・コース種別（例: ベーシック、高校受験など）
+model PricingCourse {
+  id                  String               @id @default(cuid())
+  name                String               @default("新しいプラン")
+  sortOrder           Int                  @default(0)
+  /// このプランの契約1件あたり売上（試算）。0 のときは標準単価または旧区分マスの平均
+  revenuePerContractYen       Int @default(0)
+  /// このプランの契約1件あたり変動経費。0 のときは全体の変動費単価を使用
+  variableCostPerContractYen  Int @default(0)
+  cells               PricingPriceCell[]
+  contractPlanTargets ContractPlanTarget[]
+}
+
+/// プラン別・月ごとの契約目標件数（試算の分解用）
+model ContractPlanTarget {
+  id          String        @id @default(cuid())
+  courseId    String
+  course      PricingCourse @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  period      String
+  targetCount Int           @default(0)
+  @@unique([courseId, period])
+}
+
+/// 月ごとの追加経費（試算では SalesConfig の月次固定経費に加算）
+model ContractMonthExtra {
+  period                    String @id
+  additionalFixedExpenseYen Int    @default(0)
+}
+
+/// 区分×プランの交差セル。未設定は null（Excel の空欄に相当）
+model PricingPriceCell {
+  id        String          @id @default(cuid())
+  segmentId String
+  segment   PricingSegment  @relation(fields: [segmentId], references: [id], onDelete: Cascade)
+  courseId  String
+  course    PricingCourse   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  priceYen  Int?
+  @@unique([segmentId, courseId])
+}

@@ -4,6 +4,11 @@ import { GoalsManager } from "../components/GoalsManager";
 
 export const dynamic = "force-dynamic";
 
+export const metadata = {
+  title: "管理 | Nectere",
+  description: "架電目標・担当者の設定",
+};
+
 export default function AdminPage() {
   return (
     <div className="min-h-screen bg-zinc-50">
@@ -14,7 +19,7 @@ export default function AdminPage() {
               href="/"
               className="text-sm font-medium text-zinc-500 hover:text-zinc-900"
             >
-              ← ダッシュボード
+              ← ホーム
             </Link>
             <h1 className="text-xl font-bold text-zinc-900">管理ダッシュボード</h1>
           </div>

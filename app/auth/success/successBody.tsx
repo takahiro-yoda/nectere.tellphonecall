@@ -42,9 +42,7 @@ export function AuthSuccessBody() {
       <p className="relative mt-4 text-sm font-medium text-zinc-100">
         サインインしました
       </p>
-      <p className="relative mt-1 text-xs text-zinc-500">
-        ダッシュボードに移動しています…
-      </p>
+      <p className="relative mt-1 text-xs text-zinc-500">移動しています…</p>
 
       {/* 小さなステータス行 */}
       <div className="relative mt-5 flex items-center justify-center gap-2 text-[10px] text-zinc-500">
