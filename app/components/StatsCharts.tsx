@@ -160,10 +160,10 @@ export function StatsCharts({ byAssignee, periodLabel = "今月" }: Props) {
                 <XAxis type="number" tick={AXIS_STYLE.tick} tickLine={AXIS_STYLE.axisLine} axisLine={AXIS_STYLE.axisLine} allowDecimals={false} />
                 <YAxis type="category" dataKey="name" width={76} tick={AXIS_STYLE.tick} tickLine={false} axisLine={AXIS_STYLE.axisLine} />
                 <Tooltip content={renderTooltip} cursor={{ fill: "#f4f4f5" }} />
-                <Bar dataKey="架電数" name="架電数" fill="#334155" radius={[0, 4, 4, 0]} barSize={24} maxBarSize={32}>
+                <Bar dataKey="架電数" name="架電数" fill="#334155" radius={[0, 4, 4, 0]} barSize={24} maxBarSize={32} isAnimationActive={false}>
                   <LabelList dataKey="架電数" position="right" fill="#18181b" fontSize={14} fontWeight={600} />
                 </Bar>
-                <Bar dataKey="アポ" name="アポ数" fill="#047857" radius={[0, 4, 4, 0]} barSize={24} maxBarSize={32}>
+                <Bar dataKey="アポ" name="アポ数" fill="#047857" radius={[0, 4, 4, 0]} barSize={24} maxBarSize={32} isAnimationActive={false}>
                   <LabelList dataKey="アポ" position="right" fill="#18181b" fontSize={14} fontWeight={600} />
                 </Bar>
               </BarChart>
@@ -186,19 +186,19 @@ export function StatsCharts({ byAssignee, periodLabel = "今月" }: Props) {
                 <Tooltip content={renderTooltip} cursor={{ fill: "#f4f4f5" }} />
                 {chartView === "stacked" ? (
                   <>
-                    <Bar dataKey="架電数" name="架電数" stackId="a" fill="#64748b" radius={[0, 0, 0, 0]} barSize={56}>
+                    <Bar dataKey="架電数" name="架電数" stackId="a" fill="#64748b" radius={[0, 0, 0, 0]} barSize={56} isAnimationActive={false}>
                       <LabelList dataKey="架電数" position="center" fill="#fff" fontSize={15} fontWeight={700} />
                     </Bar>
-                    <Bar dataKey="アポ" name="アポ数" stackId="a" fill="#059669" radius={[4, 4, 0, 0]} barSize={56}>
+                    <Bar dataKey="アポ" name="アポ数" stackId="a" fill="#059669" radius={[4, 4, 0, 0]} barSize={56} isAnimationActive={false}>
                       <LabelList dataKey="アポ" position="center" fill="#fff" fontSize={15} fontWeight={700} />
                     </Bar>
                   </>
                 ) : (
                   <>
-                    <Bar dataKey="架電数" name="架電数" fill="#334155" radius={[4, 4, 0, 0]} barSize={44} maxBarSize={56}>
+                    <Bar dataKey="架電数" name="架電数" fill="#334155" radius={[4, 4, 0, 0]} barSize={44} maxBarSize={56} isAnimationActive={false}>
                       <LabelList dataKey="架電数" position="top" fill="#18181b" fontSize={15} fontWeight={700} />
                     </Bar>
-                    <Bar dataKey="アポ" name="アポ数" fill="#047857" radius={[4, 4, 0, 0]} barSize={44} maxBarSize={56}>
+                    <Bar dataKey="アポ" name="アポ数" fill="#047857" radius={[4, 4, 0, 0]} barSize={44} maxBarSize={56} isAnimationActive={false}>
                       <LabelList dataKey="アポ" position="top" fill="#18181b" fontSize={15} fontWeight={700} />
                     </Bar>
                   </>

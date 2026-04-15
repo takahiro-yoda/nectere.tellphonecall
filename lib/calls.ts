@@ -40,6 +40,7 @@ export type AssigneeStat = {
   count: number;
   appoCount: number;
   noAnswerCount: number;
+  skippedCount: number;
 };
 
 export type StatsResult = {
@@ -48,11 +49,13 @@ export type StatsResult = {
   weekAppoCount: number;
   weekAppoRate: number | null; // 0-100 or null if no calls
   weekNoAnswerCount: number;
+  weekSkippedCount: number;
   weekResponseRate: number | null;
   monthTotal: number;
   monthAppoCount: number;
   monthAppoRate: number | null;
   monthNoAnswerCount: number;
+  monthSkippedCount: number;
   monthResponseRate: number | null;
 };
 
@@ -72,12 +75,13 @@ export async function getStats(date: Date = new Date()): Promise<StatsResult> {
   ]);
 
   function aggregate(calls: any[]) {
-    const byAssigneeMap = new Map<string, { count: number; appoCount: number; noAnswerCount: number }>();
+    const byAssigneeMap = new Map<string, { count: number; appoCount: number; noAnswerCount: number; skippedCount: number }>();
     let appoCount = 0;
     let noAnswerCount = 0;
+    let skippedCount = 0;
     for (const c of calls) {
       const name = c.assignee?.name?.trim() || "（未設定）";
-      const cur = byAssigneeMap.get(name) ?? { count: 0, appoCount: 0, noAnswerCount: 0 };
+      const cur = byAssigneeMap.get(name) ?? { count: 0, appoCount: 0, noAnswerCount: 0, skippedCount: 0 };
       cur.count += 1;
       if (c.isAppointment) {
         cur.appoCount += 1;
@@ -87,10 +91,20 @@ export async function getStats(date: Date = new Date()): Promise<StatsResult> {
         cur.noAnswerCount += 1;
         noAnswerCount += 1;
       }
+      if (c.status === "SKIPPED") {
+        cur.skippedCount += 1;
+        skippedCount += 1;
+      }
       byAssigneeMap.set(name, cur);
     }
     const byAssignee: AssigneeStat[] = Array.from(byAssigneeMap.entries()).map(
-      ([assignee, { count, appoCount: ac, noAnswerCount }]) => ({ assignee, count, appoCount: ac, noAnswerCount })
+      ([assignee, { count, appoCount: ac, noAnswerCount, skippedCount: sc }]) => ({
+        assignee,
+        count,
+        appoCount: ac,
+        noAnswerCount,
+        skippedCount: sc,
+      })
     );
     byAssignee.sort((a, b) => b.count - a.count);
     return {
@@ -98,6 +112,7 @@ export async function getStats(date: Date = new Date()): Promise<StatsResult> {
       total: calls.length,
       appoCount,
       noAnswerCount,
+      skippedCount,
       appoRate: calls.length > 0 ? Math.round((appoCount / calls.length) * 1000) / 10 : null,
       responseRate:
         calls.length > 0
@@ -115,11 +130,13 @@ export async function getStats(date: Date = new Date()): Promise<StatsResult> {
     weekAppoCount: weekAgg.appoCount,
     weekAppoRate: weekAgg.appoRate,
     weekNoAnswerCount: weekAgg.noAnswerCount,
+    weekSkippedCount: weekAgg.skippedCount,
     weekResponseRate: weekAgg.responseRate,
     monthTotal: monthAgg.total,
     monthAppoCount: monthAgg.appoCount,
     monthAppoRate: monthAgg.appoRate,
     monthNoAnswerCount: monthAgg.noAnswerCount,
+    monthSkippedCount: monthAgg.skippedCount,
     monthResponseRate: monthAgg.responseRate,
   };
 }
@@ -156,11 +173,11 @@ export async function getPeriodStats(view: ViewPeriod): Promise<PeriodStats> {
     }),
   ]);
 
-  const byAssigneeMap = new Map<string, { count: number; appoCount: number; noAnswerCount: number }>();
+  const byAssigneeMap = new Map<string, { count: number; appoCount: number; noAnswerCount: number; skippedCount: number }>();
   let appoCount = 0;
   for (const c of calls) {
     const name = c.assignee?.name?.trim() || "（未設定）";
-    const cur = byAssigneeMap.get(name) ?? { count: 0, appoCount: 0, noAnswerCount: 0 };
+    const cur = byAssigneeMap.get(name) ?? { count: 0, appoCount: 0, noAnswerCount: 0, skippedCount: 0 };
     cur.count += 1;
     if (c.isAppointment) {
       cur.appoCount += 1;
@@ -169,14 +186,18 @@ export async function getPeriodStats(view: ViewPeriod): Promise<PeriodStats> {
     if ((c as any).status === "NO_ANSWER") {
       cur.noAnswerCount += 1;
     }
+    if ((c as any).status === "SKIPPED") {
+      cur.skippedCount += 1;
+    }
     byAssigneeMap.set(name, cur);
   }
   const byAssignee: AssigneeStat[] = Array.from(byAssigneeMap.entries()).map(
-    ([assignee, { count: n, appoCount: ac, noAnswerCount }]) => ({
+    ([assignee, { count: n, appoCount: ac, noAnswerCount, skippedCount }]) => ({
       assignee,
       count: n,
       appoCount: ac,
       noAnswerCount,
+      skippedCount,
     })
   );
   byAssignee.sort((a, b) => b.count - a.count);
@@ -283,11 +304,11 @@ export async function getStatsForDateRange(
     include: { assignee: { select: { name: true } } },
   });
 
-  const byAssigneeMap = new Map<string, { count: number; appoCount: number; noAnswerCount: number }>();
+  const byAssigneeMap = new Map<string, { count: number; appoCount: number; noAnswerCount: number; skippedCount: number }>();
   let appoCount = 0;
   for (const c of calls) {
     const name = c.assignee?.name?.trim() || "（未設定）";
-    const cur = byAssigneeMap.get(name) ?? { count: 0, appoCount: 0, noAnswerCount: 0 };
+    const cur = byAssigneeMap.get(name) ?? { count: 0, appoCount: 0, noAnswerCount: 0, skippedCount: 0 };
     cur.count += 1;
     if (c.isAppointment) {
       cur.appoCount += 1;
@@ -296,14 +317,18 @@ export async function getStatsForDateRange(
     if ((c as any).status === "NO_ANSWER") {
       cur.noAnswerCount += 1;
     }
+    if ((c as any).status === "SKIPPED") {
+      cur.skippedCount += 1;
+    }
     byAssigneeMap.set(name, cur);
   }
   const byAssignee: AssigneeStat[] = Array.from(byAssigneeMap.entries()).map(
-    ([assignee, { count: n, appoCount: ac, noAnswerCount }]) => ({
+    ([assignee, { count: n, appoCount: ac, noAnswerCount, skippedCount }]) => ({
       assignee,
       count: n,
       appoCount: ac,
       noAnswerCount,
+      skippedCount,
     })
   );
   byAssignee.sort((a, b) => b.count - a.count);

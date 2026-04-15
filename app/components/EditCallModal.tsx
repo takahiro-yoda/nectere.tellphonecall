@@ -10,15 +10,22 @@ type Assignee = {
   sortOrder: number;
 };
 
+type CallType = {
+  id: string;
+  name: string;
+  isActive: boolean;
+};
+
 type Call = {
   id: string;
   destination: string;
   memo: string | null;
   assigneeId: string | null;
   assignee: { id: string; name: string; color: string | null } | null;
+  callTypeId?: string | null;
   isAppointment: boolean;
   createdAt: string;
-  status?: "APPOINTMENT" | "NO_ANSWER" | "OTHER";
+  status?: "APPOINTMENT" | "NO_ANSWER" | "OTHER" | "SKIPPED";
 };
 
 type Props = {
@@ -29,18 +36,21 @@ type Props = {
 export function EditCallModal({ call, onClose }: Props) {
   const router = useRouter();
   const [assignees, setAssignees] = useState<Assignee[]>([]);
+  const [callTypes, setCallTypes] = useState<CallType[]>([]);
   const [destination, setDestination] = useState("");
   const [assigneeId, setAssigneeId] = useState<string | null>(null);
+  const [callTypeId, setCallTypeId] = useState<string | null>(null);
   const [memo, setMemo] = useState("");
   const [dateInput, setDateInput] = useState("");
   const [isAppointment, setIsAppointment] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [resultStatus, setResultStatus] = useState<"APPOINTMENT" | "NO_ANSWER" | "OTHER">("OTHER");
+  const [resultStatus, setResultStatus] = useState<"APPOINTMENT" | "NO_ANSWER" | "OTHER" | "SKIPPED">("OTHER");
 
   useEffect(() => {
     if (!call) return;
     setDestination(call.destination);
     setAssigneeId(call.assigneeId ?? null);
+    setCallTypeId(call.callTypeId ?? null);
     setMemo(call.memo ?? "");
     const d = new Date(call.createdAt);
     const yyyy = d.getFullYear();
@@ -49,7 +59,10 @@ export function EditCallModal({ call, onClose }: Props) {
     setDateInput(`${yyyy}-${mm}-${dd}`);
     setIsAppointment(call.isAppointment);
     setResultStatus(
-      call.status === "APPOINTMENT" || call.status === "NO_ANSWER" || call.status === "OTHER"
+      call.status === "APPOINTMENT" ||
+        call.status === "NO_ANSWER" ||
+        call.status === "OTHER" ||
+        call.status === "SKIPPED"
         ? call.status
         : call.isAppointment
           ? "APPOINTMENT"
@@ -61,6 +74,9 @@ export function EditCallModal({ call, onClose }: Props) {
     fetch("/api/admin/assignees")
       .then((res) => res.json())
       .then((data) => setAssignees(Array.isArray(data) ? data : []));
+    fetch("/api/admin/call-types")
+      .then((res) => res.json())
+      .then((data) => setCallTypes(Array.isArray(data) ? data : []));
   }, [call?.id]);
 
   useEffect(() => {
@@ -87,6 +103,7 @@ export function EditCallModal({ call, onClose }: Props) {
         body: JSON.stringify({
           destination: destination.trim(),
           assigneeId: assigneeId || null,
+          callTypeId: callTypeId || null,
           memo: memo.trim() || null,
           isAppointment: isAppointmentFlag,
           status: resultStatus,
@@ -154,6 +171,24 @@ export function EditCallModal({ call, onClose }: Props) {
               ))}
             </div>
           </div>
+          <div>
+            <label htmlFor="edit-call-type" className="block text-sm font-medium text-zinc-700">
+              電話タイプ
+            </label>
+            <select
+              id="edit-call-type"
+              value={callTypeId ?? ""}
+              onChange={(e) => setCallTypeId(e.target.value || null)}
+              className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-zinc-900"
+            >
+              <option value="">未設定</option>
+              {callTypes.map((type) => (
+                <option key={type.id} value={type.id}>
+                  {type.name}
+                </option>
+              ))}
+            </select>
+          </div>
           <div className="flex items-center gap-2">
             <fieldset className="space-y-2">
               <legend className="text-sm font-medium text-zinc-700">結果</legend>
@@ -199,6 +234,20 @@ export function EditCallModal({ call, onClose }: Props) {
                     className="h-4 w-4 border-zinc-300 text-zinc-900"
                   />
                   <span>つながったがアポにならず</span>
+                </label>
+                <label className="inline-flex items-center gap-2">
+                  <input
+                    type="radio"
+                    name="edit-call-result"
+                    value="SKIPPED"
+                    checked={resultStatus === "SKIPPED"}
+                    onChange={() => {
+                      setResultStatus("SKIPPED");
+                      setIsAppointment(false);
+                    }}
+                    className="h-4 w-4 border-zinc-300 text-zinc-900"
+                  />
+                  <span>スキップ</span>
                 </label>
               </div>
             </fieldset>

@@ -218,6 +218,7 @@ export function ContractTrendsPanel() {
                     name="売上（万円）"
                     fill="#7FA8A1"
                     radius={[4, 4, 0, 0]}
+                    isAnimationActive={false}
                     onClick={(d) => toggleOpenPeriod((d as { payload?: { period?: string } })?.payload?.period ?? null)}
                     className="cursor-pointer"
                   />
@@ -226,6 +227,7 @@ export function ContractTrendsPanel() {
                     dataKey="profitMan"
                     name="利益（万円）"
                     radius={[4, 4, 0, 0]}
+                    isAnimationActive={false}
                     onClick={(d) => toggleOpenPeriod((d as { payload?: { period?: string } })?.payload?.period ?? null)}
                     className="cursor-pointer"
                   >
@@ -241,6 +243,7 @@ export function ContractTrendsPanel() {
                     stroke="#8D99AE"
                     strokeWidth={2}
                     dot={{ r: 3 }}
+                    isAnimationActive={false}
                     onClick={(d) => toggleOpenPeriod((d as { payload?: { period?: string } })?.payload?.period ?? null)}
                   />
                 </ComposedChart>
@@ -266,8 +269,8 @@ export function ContractTrendsPanel() {
                     contentStyle={{ borderRadius: 12, border: "1px solid #e4e4e7" }}
                   />
                   <Legend formatter={legendLabel} />
-                  <Bar dataKey="revenueMan" name="年間売上（万円）" fill="#86A9B7" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="profitMan" name="年間利益（万円）" radius={[4, 4, 0, 0]}>
+                  <Bar dataKey="revenueMan" name="年間売上（万円）" fill="#86A9B7" radius={[4, 4, 0, 0]} isAnimationActive={false} />
+                  <Bar dataKey="profitMan" name="年間利益（万円）" radius={[4, 4, 0, 0]} isAnimationActive={false}>
                     {annualChartData.map((entry) => (
                       <Cell key={`annual-profit-${entry.year}`} fill={entry.profitMan < 0 ? "#D88C8C" : "#A3BFA8"} />
                     ))}

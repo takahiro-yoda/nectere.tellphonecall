@@ -21,8 +21,10 @@ model Call {
   memo         String?
   assigneeId   String?
   assignee     Assignee?  @relation(fields: [assigneeId], references: [id], onDelete: SetNull)
+  callTypeId   String?
+  callType     CallType?  @relation(fields: [callTypeId], references: [id], onDelete: SetNull)
   isAppointment Boolean   @default(false)
-  /// 架電結果: APPOINTMENT=アポ, NO_ANSWER=未応答, OTHER=つながったがアポにならず
+  /// 架電結果: APPOINTMENT=アポ, NO_ANSWER=未応答, OTHER=つながったがアポにならず, SKIPPED=スキップ
   status        CallStatus @default(OTHER)
   createdAt    DateTime  @default(now())
 }
@@ -31,6 +33,45 @@ enum CallStatus {
   APPOINTMENT
   NO_ANSWER
   OTHER
+  SKIPPED
+}
+
+model CallType {
+  id          String           @id @default(cuid())
+  name        String
+  isActive    Boolean          @default(true)
+  sortOrder   Int              @default(0)
+  calls       Call[]
+  scriptNodes CallScriptNode[]
+}
+
+model CallScriptNode {
+  id         String           @id @default(cuid())
+  callTypeId String
+  callType   CallType         @relation(fields: [callTypeId], references: [id], onDelete: Cascade)
+  title      String
+  body       String
+  nodeType   ScriptNodeType   @default(STEP)
+  isEntry    Boolean          @default(false)
+  sortOrder  Int              @default(0)
+  edgesFrom  CallScriptEdge[] @relation("ScriptEdgeFrom")
+  edgesTo    CallScriptEdge[] @relation("ScriptEdgeTo")
+}
+
+model CallScriptEdge {
+  id         String         @id @default(cuid())
+  fromNodeId String
+  fromNode   CallScriptNode @relation("ScriptEdgeFrom", fields: [fromNodeId], references: [id], onDelete: Cascade)
+  choiceKey  String
+  choiceLabel String?
+  toNodeId   String?
+  toNode     CallScriptNode? @relation("ScriptEdgeTo", fields: [toNodeId], references: [id], onDelete: SetNull)
+  sortOrder  Int            @default(0)
+}
+
+enum ScriptNodeType {
+  STEP
+  OUTCOME
 }
 
 model Goal {

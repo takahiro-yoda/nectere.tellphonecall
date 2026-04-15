@@ -7,7 +7,7 @@ export async function PATCH(
 ) {
   const { id } = await params;
   const body = await _request.json();
-  const { destination, memo, assigneeId, isAppointment, status, createdAt } = body;
+  const { destination, memo, assigneeId, callTypeId, isAppointment, status, createdAt } = body;
 
   const data: {
     destination?: string;
@@ -19,8 +19,15 @@ export async function PATCH(
       | {
           disconnect: true;
         };
+    callType?:
+      | {
+          connect: { id: string };
+        }
+      | {
+          disconnect: true;
+        };
     isAppointment?: boolean;
-    status?: "APPOINTMENT" | "NO_ANSWER" | "OTHER";
+    status?: "APPOINTMENT" | "NO_ANSWER" | "OTHER" | "SKIPPED";
     createdAt?: Date;
   } = {};
   if (typeof destination === "string" && destination.trim() !== "")
@@ -34,8 +41,23 @@ export async function PATCH(
             connect: { id: assigneeId },
           };
   }
+  if (callTypeId !== undefined) {
+    data.callType =
+      callTypeId == null || callTypeId === ""
+        ? { disconnect: true }
+        : {
+            connect: { id: callTypeId },
+          };
+  }
   if (typeof isAppointment === "boolean") data.isAppointment = isAppointment;
-  if (status === "APPOINTMENT" || status === "NO_ANSWER" || status === "OTHER") data.status = status;
+  if (
+    status === "APPOINTMENT" ||
+    status === "NO_ANSWER" ||
+    status === "OTHER" ||
+    status === "SKIPPED"
+  ) {
+    data.status = status;
+  }
   if (createdAt) {
     const d = new Date(createdAt);
     if (!Number.isNaN(d.getTime())) {
@@ -46,7 +68,7 @@ export async function PATCH(
   const updated = await prisma.call.update({
     where: { id },
     data,
-    include: { assignee: true },
+    include: { assignee: true, callType: true },
   });
   return NextResponse.json(updated);
 }

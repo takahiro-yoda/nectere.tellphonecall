@@ -18,9 +18,11 @@ type Call = {
   memo: string | null;
   assigneeId: string | null;
   assignee: { id: string; name: string; color: string | null } | null;
+  callTypeId?: string | null;
+  callType?: { id: string; name: string } | null;
   isAppointment: boolean;
   createdAt: string;
-  status?: "APPOINTMENT" | "NO_ANSWER" | "OTHER";
+  status?: "APPOINTMENT" | "NO_ANSWER" | "OTHER" | "SKIPPED";
 };
 
 type RangeKey = "week" | "last-week" | "month" | "last-month";
@@ -249,6 +251,10 @@ export function CallList({
                         ) : call.status === "NO_ANSWER" ? (
                           <span className="inline-flex items-center rounded-full bg-orange-100 px-2.5 py-1 text-xs font-semibold text-orange-800">
                             未応答
+                          </span>
+                        ) : call.status === "SKIPPED" ? (
+                          <span className="inline-flex items-center rounded-full bg-zinc-200 px-2.5 py-1 text-xs font-semibold text-zinc-700">
+                            スキップ
                           </span>
                         ) : (
                           <span className="inline-flex items-center rounded-full bg-zinc-100 px-2.5 py-1 text-xs font-semibold text-zinc-700">

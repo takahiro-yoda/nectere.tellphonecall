@@ -34,14 +34,14 @@ export async function GET(request: NextRequest) {
   const calls = await prisma.call.findMany({
     where: { createdAt: { gte: start, lte: end } },
     orderBy: { createdAt: "desc" },
-    include: { assignee: true },
+    include: { assignee: true, callType: true },
   });
   return NextResponse.json(calls);
 }
 
 export async function POST(request: NextRequest) {
   const body = await request.json();
-  const { destination, memo, createdAt, assigneeId, isAppointment, status } = body;
+  const { destination, memo, createdAt, assigneeId, callTypeId, isAppointment, status } = body;
 
   if (!destination || typeof destination !== "string" || destination.trim() === "") {
     return NextResponse.json({ error: "destination is required" }, { status: 400 });
@@ -58,24 +58,34 @@ export async function POST(request: NextRequest) {
             : {
                 connect: { id: assigneeId },
               },
+        callType:
+          callTypeId == null || callTypeId === ""
+            ? undefined
+            : {
+                connect: { id: callTypeId },
+              },
         isAppointment: Boolean(isAppointment),
         status:
-          status === "APPOINTMENT" || status === "NO_ANSWER" || status === "OTHER"
+          status === "APPOINTMENT" ||
+          status === "NO_ANSWER" ||
+          status === "OTHER" ||
+          status === "SKIPPED"
             ? status
             : Boolean(isAppointment)
               ? "APPOINTMENT"
               : "OTHER",
         createdAt: createdAt ? new Date(createdAt) : undefined,
       },
-      include: { assignee: true },
+      include: { assignee: true, callType: true },
     });
     return NextResponse.json(created);
-  } catch (e: any) {
+  } catch (e: unknown) {
+    const detail = e instanceof Error ? e.message : String(e);
     console.error("Failed to create call", e);
     return NextResponse.json(
       {
         error: "サーバー内部エラーです。管理者にお問い合わせください。",
-        detail: e?.message ?? String(e),
+        detail,
       },
       { status: 500 },
     );

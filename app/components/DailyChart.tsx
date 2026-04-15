@@ -121,6 +121,7 @@ export function DailyChart({ dailyStats, periodLabel }: Props) {
                 radius={[4, 4, 0, 0]}
                 barSize={28}
                 maxBarSize={40}
+                isAnimationActive={false}
               >
                 <LabelList
                   dataKey="count"
@@ -139,6 +140,7 @@ export function DailyChart({ dailyStats, periodLabel }: Props) {
                 strokeWidth={2.5}
                 dot={{ fill: "#059669", strokeWidth: 0, r: 4 }}
                 connectNulls
+                isAnimationActive={false}
               />
               <Line
                 yAxisId="right"
@@ -149,6 +151,7 @@ export function DailyChart({ dailyStats, periodLabel }: Props) {
                 strokeWidth={2}
                 dot={{ fill: "#0284c7", strokeWidth: 0, r: 3 }}
                 connectNulls
+                isAnimationActive={false}
               />
             </ComposedChart>
           </ResponsiveContainer>

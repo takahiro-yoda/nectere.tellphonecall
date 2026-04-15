@@ -14,14 +14,21 @@ type Props = {
   onAdded?: () => void;
 };
 
+type CallType = {
+  id: string;
+  name: string;
+  isActive: boolean;
+};
+type CallStatus = "APPOINTMENT" | "NO_ANSWER" | "OTHER" | "SKIPPED";
+
 export function AddCallForm({ onAdded }: Props) {
   const router = useRouter();
   const [assignees, setAssignees] = useState<Assignee[]>([]);
+  const [callTypes, setCallTypes] = useState<CallType[]>([]);
+  const [callTypeId, setCallTypeId] = useState("");
   const [destination, setDestination] = useState("");
   const [assigneeId, setAssigneeId] = useState<string | null>(null);
   const [memo, setMemo] = useState("");
-  const [isAppointment, setIsAppointment] = useState(false);
-  const [resultStatus, setResultStatus] = useState<"APPOINTMENT" | "NO_ANSWER" | "OTHER">("OTHER");
   const [dateInput, setDateInput] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [open, setOpen] = useState(false);
@@ -45,6 +52,7 @@ export function AddCallForm({ onAdded }: Props) {
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if (e.key !== "n" && e.key !== "N") return;
+      if (open) return;
       const target = e.target as HTMLElement;
       const isInput = target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.tagName === "SELECT" || target.isContentEditable;
       if (isInput) return;
@@ -53,7 +61,7 @@ export function AddCallForm({ onAdded }: Props) {
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, []);
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -70,27 +78,43 @@ export function AddCallForm({ onAdded }: Props) {
     fetch("/api/admin/assignees")
       .then((res) => res.json())
       .then((data) => setAssignees(Array.isArray(data) ? data : []));
+    fetch("/api/admin/call-types")
+      .then((res) => res.json())
+      .then((data) => {
+        const list = Array.isArray(data) ? (data as CallType[]).filter((x) => x.isActive) : [];
+        setCallTypes(list);
+        setCallTypeId((prev) => prev || list[0]?.id || "");
+      });
   }, [open]);
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  function resetFormState() {
+    setDestination("");
+    setAssigneeId(null);
+    setMemo("");
+  }
+
+  async function saveCall(status: CallStatus) {
     if (!destination.trim()) return;
+    if (!callTypeId) {
+      setError("通話タイプを選択してください");
+      return;
+    }
     setError(null);
     setSubmitting(true);
     try {
       const createdAt = dateInput
         ? new Date(`${dateInput}T12:00:00`).toISOString()
         : undefined;
-      const isAppointmentFlag = resultStatus === "APPOINTMENT" || isAppointment;
       const res = await fetch("/api/calls", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           destination: destination.trim(),
           assigneeId: assigneeId || null,
+          callTypeId,
           memo: memo.trim() || null,
-          isAppointment: isAppointmentFlag,
-          status: resultStatus,
+          isAppointment: status === "APPOINTMENT",
+          status,
           createdAt,
         }),
       });
@@ -124,38 +148,77 @@ export function AddCallForm({ onAdded }: Props) {
         setError(message);
         return;
       }
-      setDestination("");
-      setAssigneeId(null);
-      setMemo("");
-      setIsAppointment(false);
-      setResultStatus("OTHER");
+      resetFormState();
       setDefaultDate();
       onAdded?.();
       router.refresh();
       setOpen(false);
-    } catch (_e) {
+    } catch {
       setError("通信エラーが発生しました");
     } finally {
       setSubmitting(false);
     }
   }
 
+  async function handleSkip() {
+    await saveCall("SKIPPED");
+  }
+
+  function startCall() {
+    if (!destination.trim()) {
+      setError("電話先を入力してください");
+      return;
+    }
+    if (!callTypeId) {
+      setError("通話タイプを選択してください");
+      return;
+    }
+    const params = new URLSearchParams({
+      destination: destination.trim(),
+      callTypeId,
+      date: dateInput,
+    });
+    if (assigneeId) params.set("assigneeId", assigneeId);
+    if (memo.trim()) params.set("memo", memo.trim());
+    router.push(`/calls/live?${params.toString()}`);
+    setOpen(false);
+    resetFormState();
+    setError(null);
+  }
+
   return (
     <div>
       <button
         type="button"
-        onClick={() => setOpen((o) => !o)}
+        onClick={() => {
+          setOpen((o) => {
+            const next = !o;
+            if (next) {
+              setError(null);
+            }
+            return next;
+          });
+        }}
         className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-zinc-800"
         title="N キーでも開く"
       >
-        架電を記録
+        記録開始
         <span className="ml-1.5 text-zinc-400 font-normal">(N)</span>
       </button>
       {open && (
         <div className="fixed inset-0 z-10 flex items-center justify-center bg-black/30 p-4">
-          <div className="w-full max-w-sm rounded-xl bg-white p-6 shadow-lg">
-            <h3 className="text-lg font-semibold text-zinc-900">架電を記録</h3>
-            <form onSubmit={handleSubmit} className="mt-4 space-y-4">
+          <div className="w-full max-w-lg rounded-xl bg-white p-6 shadow-lg">
+            <h3 className="text-lg font-semibold text-zinc-900">架電の記録開始</h3>
+            <div className="mt-2 text-xs text-zinc-500">
+              電話先と通話タイプを決めると、通話中記録の専用ページへ移動します
+            </div>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                startCall();
+              }}
+              className="mt-4 space-y-4"
+            >
               <div>
                 <label htmlFor="call-date" className="block text-sm font-medium text-zinc-700">
                   日付
@@ -183,6 +246,24 @@ export function AddCallForm({ onAdded }: Props) {
                 />
               </div>
               <div>
+                <label htmlFor="call-type" className="block text-sm font-medium text-zinc-700">
+                  電話タイプ（必須）
+                </label>
+                <select
+                  id="call-type"
+                  value={callTypeId}
+                  onChange={(e) => setCallTypeId(e.target.value)}
+                  className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-zinc-900"
+                >
+                  <option value="">選択してください</option>
+                  {callTypes.map((type) => (
+                    <option key={type.id} value={type.id}>
+                      {type.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
                 <span className="block text-sm font-medium text-zinc-700">担当者（タグで選択）</span>
                 <div className="mt-1.5 flex flex-wrap gap-1.5">
                   {assignees.map((a) => (
@@ -208,53 +289,6 @@ export function AddCallForm({ onAdded }: Props) {
                   )}
                 </div>
               </div>
-              <fieldset className="space-y-2">
-                <legend className="text-sm font-medium text-zinc-700">結果</legend>
-                <div className="flex flex-col gap-1.5 text-sm text-zinc-700">
-                  <label className="inline-flex items-center gap-2">
-                    <input
-                      type="radio"
-                      name="call-result"
-                      value="APPOINTMENT"
-                      checked={resultStatus === "APPOINTMENT"}
-                      onChange={() => {
-                        setResultStatus("APPOINTMENT");
-                        setIsAppointment(true);
-                      }}
-                      className="h-4 w-4 border-zinc-300 text-zinc-900"
-                    />
-                    <span>アポになった</span>
-                  </label>
-                  <label className="inline-flex items-center gap-2">
-                    <input
-                      type="radio"
-                      name="call-result"
-                      value="NO_ANSWER"
-                      checked={resultStatus === "NO_ANSWER"}
-                      onChange={() => {
-                        setResultStatus("NO_ANSWER");
-                        setIsAppointment(false);
-                      }}
-                      className="h-4 w-4 border-zinc-300 text-zinc-900"
-                    />
-                    <span>未応答（電話に出なかった）</span>
-                  </label>
-                  <label className="inline-flex items-center gap-2">
-                    <input
-                      type="radio"
-                      name="call-result"
-                      value="OTHER"
-                      checked={resultStatus === "OTHER"}
-                      onChange={() => {
-                        setResultStatus("OTHER");
-                        setIsAppointment(false);
-                      }}
-                      className="h-4 w-4 border-zinc-300 text-zinc-900"
-                    />
-                    <span>つながったがアポにならず</span>
-                  </label>
-                </div>
-              </fieldset>
               <div>
                 <label htmlFor="call-memo" className="block text-sm font-medium text-zinc-700">
                   メモ（任意）
@@ -271,17 +305,28 @@ export function AddCallForm({ onAdded }: Props) {
               <div className="flex gap-2 pt-2">
                 <button
                   type="button"
-                  onClick={() => setOpen(false)}
+                  onClick={() => {
+                    setOpen(false);
+                    resetFormState();
+                  }}
                   className="flex-1 rounded-lg border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
                 >
                   キャンセル
                 </button>
                 <button
+                  type="button"
+                  onClick={handleSkip}
+                  disabled={submitting || !destination.trim() || !callTypeId}
+                  className="flex-1 rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 disabled:opacity-50"
+                >
+                  {submitting ? "記録中…" : "スキップ"}
+                </button>
+                <button
                   type="submit"
-                  disabled={submitting}
+                  disabled={submitting || !destination.trim() || !callTypeId}
                   className="flex-1 rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800 disabled:opacity-50"
                 >
-                  {submitting ? "記録中…" : "記録"}
+                  通話開始
                 </button>
               </div>
               {error && (

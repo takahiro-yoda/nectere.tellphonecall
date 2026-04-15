@@ -26,6 +26,7 @@ import { PlansManagerPanel } from "../components/PlansManagerPanel";
 import { MonthTrialSummary } from "../components/MonthTrialSummary";
 import { PlanMonthTargetsPanel } from "../components/PlanMonthTargetsPanel";
 import { ContractTrendsPanel } from "../components/ContractTrendsPanel";
+import { HamburgerMenu } from "../components/HamburgerMenu";
 
 export const dynamic = "force-dynamic";
 
@@ -102,17 +103,18 @@ export default async function ContractsPage() {
     <div className="min-h-screen bg-zinc-50">
       <header className="border-b border-zinc-200 bg-white">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-4 py-4">
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-            <Link href="/" className="text-sm font-medium text-zinc-500 hover:text-zinc-900">
-              ← ホーム
-            </Link>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+            <HamburgerMenu />
             <div>
               <h1 className="text-xl font-bold tracking-tight text-zinc-900">契約・売上試算</h1>
               <p className="text-xs font-medium text-zinc-400">契約ベース試算と料金表</p>
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <Link href="/admin" className="text-sm font-medium text-zinc-500 hover:text-zinc-900">
+            <Link
+              href="/admin"
+              className="inline-flex items-center rounded-full border border-zinc-200 bg-white px-3 py-1.5 text-xs font-semibold text-zinc-600 transition hover:border-zinc-300 hover:text-zinc-900"
+            >
               管理
             </Link>
             <AddContractForm />

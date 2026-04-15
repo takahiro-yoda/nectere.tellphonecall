@@ -11,6 +11,7 @@ import { AppoRateBlock } from "../components/AppoRateBlock";
 import { StatsCharts } from "../components/StatsCharts";
 import { DailyChart } from "../components/DailyChart";
 import { PeriodSelector } from "../components/PeriodSelector";
+import { HamburgerMenu } from "../components/HamburgerMenu";
 
 export const dynamic = "force-dynamic";
 
@@ -54,17 +55,18 @@ export default async function CallsDashboardPage({
     <div className="min-h-screen bg-zinc-50">
       <header className="border-b border-zinc-200 bg-white">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-            <Link href="/" className="text-sm font-medium text-zinc-500 hover:text-zinc-900">
-              ← ホーム
-            </Link>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+            <HamburgerMenu />
             <div className="flex items-baseline gap-2">
               <h1 className="text-xl font-bold tracking-tight text-zinc-900">Nectere Call Metrics</h1>
               <span className="text-xs font-medium text-zinc-400">daily activity overview</span>
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <Link href="/admin" className="text-sm font-medium text-zinc-500 hover:text-zinc-900">
+            <Link
+              href="/admin"
+              className="inline-flex items-center rounded-full border border-zinc-200 bg-white px-3 py-1.5 text-xs font-semibold text-zinc-600 transition hover:border-zinc-300 hover:text-zinc-900"
+            >
               管理・目標設定
             </Link>
             <AddCallForm />
