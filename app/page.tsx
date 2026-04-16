@@ -78,7 +78,7 @@ export default async function HomeHubPage() {
           <p className="text-xs font-semibold uppercase tracking-[0.25em] text-zinc-500">Operations hub</p>
           <h1 className="mt-3 max-w-2xl text-4xl font-bold tracking-tight text-white sm:text-5xl">Nectere</h1>
           <p className="mt-4 max-w-xl text-sm leading-relaxed text-zinc-400 sm:text-base">
-            架電の記録から契約・プラン別の売上試算まで、チームの数字をこのひとつの入口から辿れます。
+            Wlecome to dashboard
           </p>
 
           <div className="mt-10 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { EditCallModal } from "./EditCallModal";
@@ -14,7 +15,10 @@ const VIEW_TO_RANGE: Record<ViewPeriod, string> = {
 
 type Call = {
   id: string;
+  callCode?: string | null;
   destination: string;
+  destinationContactName?: string | null;
+  destinationPhone?: string | null;
   memo: string | null;
   assigneeId: string | null;
   assignee: { id: string; name: string; color: string | null } | null;
@@ -58,7 +62,9 @@ export function CallList({
         const dest = call.destination.toLowerCase();
         const assigneeName = call.assignee?.name.toLowerCase() ?? "";
         const memo = (call.memo ?? "").toLowerCase();
-        return dest.includes(q) || assigneeName.includes(q) || memo.includes(q);
+        const contactName = (call.destinationContactName ?? "").toLowerCase();
+        const phone = (call.destinationPhone ?? "").toLowerCase();
+        return dest.includes(q) || assigneeName.includes(q) || memo.includes(q) || contactName.includes(q) || phone.includes(q);
       })
     : calls;
 
@@ -89,8 +95,18 @@ export function CallList({
       ? `/api/calls?range=custom&from=${encodeURIComponent(customFrom!)}&to=${encodeURIComponent(customTo!)}`
       : `/api/calls?range=${range}`;
     fetch(url)
-      .then((res) => res.json())
-      .then((data) => setCalls(Array.isArray(data) ? data : []))
+      .then(async (res) => {
+        if (!res.ok) return [];
+        try {
+          const contentType = res.headers.get("content-type") ?? "";
+          if (!contentType.includes("application/json")) return [];
+          const data = await res.json();
+          return Array.isArray(data) ? data : [];
+        } catch {
+          return [];
+        }
+      })
+      .then((data) => setCalls(data))
       .finally(() => setLoading(false));
   }, [open, alwaysOpen, range, editingCall, isCustomRange, customFrom, customTo]);
 
@@ -112,7 +128,15 @@ export function CallList({
         </button>
       )}
       {alwaysOpen && (
-        <h2 className="mb-3 text-base font-semibold text-zinc-800">電話先一覧</h2>
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <h2 className="text-base font-semibold text-zinc-800">電話先一覧</h2>
+          <Link
+            href="/calls/history"
+            className="rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-xs font-semibold text-zinc-700 hover:bg-zinc-50"
+          >
+            一覧
+          </Link>
+        </div>
       )}
       {showList && (
         <div
@@ -195,6 +219,9 @@ export function CallList({
                       アポ
                     </th>
                     <th className="min-w-[160px] px-5 py-3.5 text-xs font-semibold uppercase tracking-wider text-zinc-500">
+                      詳細情報
+                    </th>
+                    <th className="min-w-[160px] px-5 py-3.5 text-xs font-semibold uppercase tracking-wider text-zinc-500">
                       メモ
                     </th>
                     <th className="w-0 px-3 py-3.5"></th>
@@ -205,7 +232,8 @@ export function CallList({
                   {filteredCalls.map((call, i) => (
                     <tr
                       key={call.id}
-                      className={`border-b border-zinc-100 transition-colors hover:bg-zinc-50/70 ${
+                      onClick={() => router.push(`/calls/${call.id}/flow`)}
+                      className={`cursor-pointer border-b border-zinc-100 transition-colors hover:bg-zinc-50/70 ${
                         i % 2 === 1 ? "bg-zinc-50/40" : ""
                       }`}
                     >
@@ -239,9 +267,16 @@ export function CallList({
                         )}
                       </td>
                       <td className="px-5 py-4">
-                        <span className="text-base font-semibold text-zinc-900">
-                          {call.destination}
-                        </span>
+                        <div>
+                          <span className="text-base font-semibold text-zinc-900 underline-offset-2 transition hover:text-zinc-700 hover:underline">
+                            {call.destination}
+                          </span>
+                          {call.callCode && (
+                            <div className="mt-0.5 text-[11px] font-medium tracking-wide text-zinc-500">
+                              ID: {call.callCode}
+                            </div>
+                          )}
+                        </div>
                       </td>
                       <td className="px-5 py-4">
                         {call.status === "APPOINTMENT" || call.isAppointment ? (
@@ -262,6 +297,22 @@ export function CallList({
                           </span>
                         )}
                       </td>
+                      <td className="px-5 py-4">
+                        <div className="space-y-1 text-sm text-zinc-700">
+                          <div className="min-w-0">
+                            <div className="text-[11px] font-semibold text-zinc-500">担当者名</div>
+                            <div className="truncate font-medium text-zinc-800">
+                              {call.destinationContactName?.trim() || "—"}
+                            </div>
+                          </div>
+                          <div className="min-w-0">
+                            <div className="text-[11px] font-semibold text-zinc-500">電話番号</div>
+                            <div className="truncate font-medium text-zinc-800">
+                              {call.destinationPhone?.trim() || "—"}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
                       <td className="max-w-[220px] px-5 py-4">
                         <span
                           className="block text-sm leading-relaxed text-zinc-600"
@@ -277,7 +328,10 @@ export function CallList({
                       <td className="px-3 py-4">
                         <button
                           type="button"
-                          onClick={() => setEditingCall(call)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditingCall(call);
+                          }}
                           className="rounded-lg p-2 text-zinc-400 hover:bg-zinc-200/80 hover:text-zinc-700"
                           title="編集"
                         >
@@ -289,7 +343,10 @@ export function CallList({
                       <td className="px-3 py-4">
                         <button
                           type="button"
-                          onClick={() => handleDelete(call)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            void handleDelete(call);
+                          }}
                           className="rounded-lg p-2 text-zinc-400 hover:bg-red-100 hover:text-red-600"
                           title="削除"
                         >

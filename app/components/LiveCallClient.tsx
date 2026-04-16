@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { HamburgerMenu } from "./HamburgerMenu";
+import type { ScriptFlowData, ScriptFlowStep } from "@/lib/callFlow";
 
 type ScriptEdge = {
   id: string;
@@ -21,6 +22,7 @@ type ScriptNode = {
 };
 
 type CallStatus = "APPOINTMENT" | "NO_ANSWER" | "OTHER";
+type Assignee = { id: string; name: string };
 
 export function LiveCallClient() {
   const router = useRouter();
@@ -29,13 +31,20 @@ export function LiveCallClient() {
   const [currentNodeId, setCurrentNodeId] = useState<string | null>(null);
   const [resultStatus, setResultStatus] = useState<CallStatus>("OTHER");
   const [memo, setMemo] = useState(searchParams.get("memo") ?? "");
+  const [nodePath, setNodePath] = useState<string[]>([]);
+  const [flowSteps, setFlowSteps] = useState<ScriptFlowStep[]>([]);
+  const [assigneeName, setAssigneeName] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const destination = searchParams.get("destination") ?? "";
+  const destinationContactName = searchParams.get("destinationContactName") ?? "";
+  const destinationContactKana = searchParams.get("destinationContactKana") ?? "";
+  const destinationPhone = searchParams.get("destinationPhone") ?? "";
   const callTypeId = searchParams.get("callTypeId") ?? "";
   const assigneeId = searchParams.get("assigneeId") ?? "";
   const date = searchParams.get("date") ?? "";
+  const time = searchParams.get("time") ?? "";
 
   useEffect(() => {
     if (!callTypeId) return;
@@ -46,9 +55,26 @@ export function LiveCallClient() {
         setScriptNodes(nodes);
         const entryNode = nodes.find((n) => n.isEntry) ?? nodes[0] ?? null;
         setCurrentNodeId(entryNode?.id ?? null);
+        setNodePath(entryNode?.id ? [entryNode.id] : []);
+        setFlowSteps([]);
       })
       .catch(() => setScriptNodes([]));
   }, [callTypeId]);
+
+  useEffect(() => {
+    if (!assigneeId) {
+      setAssigneeName("");
+      return;
+    }
+    fetch("/api/admin/assignees")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        const list = Array.isArray(data) ? (data as Assignee[]) : [];
+        const selected = list.find((a) => a.id === assigneeId);
+        setAssigneeName(selected?.name?.trim() ?? "");
+      })
+      .catch(() => setAssigneeName(""));
+  }, [assigneeId]);
 
   const currentNode = useMemo(
     () => scriptNodes.find((node) => node.id === currentNodeId) ?? null,
@@ -59,6 +85,20 @@ export function LiveCallClient() {
   const noChoice = currentChoices.find((edge) => edge.choiceKey.toUpperCase() === "NO");
   const yesNextNode = yesChoice?.toNodeId ? scriptNodes.find((node) => node.id === yesChoice.toNodeId) ?? null : null;
   const noNextNode = noChoice?.toNodeId ? scriptNodes.find((node) => node.id === noChoice.toNodeId) ?? null : null;
+
+  const replaceScriptTokens = (rawText: string | null | undefined): string => {
+    const text = rawText ?? "";
+    const safeDestination = destination.trim();
+    const safeAssigneeName = assigneeName || "担当者名";
+    const safeDestinationContactName = destinationContactName.trim() || safeAssigneeName;
+    return text
+      .replaceAll("（自分の氏名）", safeAssigneeName)
+      .replaceAll("(自分の氏名)", safeAssigneeName)
+      .replaceAll("（発信先）", safeDestination)
+      .replaceAll("(発信先)", safeDestination)
+      .replaceAll("（発信先担当者名）", safeDestinationContactName)
+      .replaceAll("(発信先担当者名)", safeDestinationContactName);
+  };
 
   useEffect(() => {
     function onLiveKeyDown(e: KeyboardEvent) {
@@ -89,7 +129,7 @@ export function LiveCallClient() {
     return () => window.removeEventListener("keydown", onLiveKeyDown);
   }, [currentChoices, resultStatus]);
 
-  async function saveCall(status: CallStatus) {
+  async function saveCall(status: CallStatus, flowOverride?: ScriptFlowData | null) {
     if (!destination.trim() || !callTypeId) {
       setError("初期情報が不足しています。記録開始からやり直してください。");
       return;
@@ -97,18 +137,22 @@ export function LiveCallClient() {
     setSubmitting(true);
     setError(null);
     try {
-      const createdAt = date ? new Date(`${date}T12:00:00`).toISOString() : undefined;
+      const createdAt = date ? new Date(`${date}T${time || "12:00"}:00`).toISOString() : undefined;
       const res = await fetch("/api/calls", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           destination: destination.trim(),
+          destinationContactName: destinationContactName.trim() || null,
+          destinationContactKana: destinationContactKana.trim() || null,
+          destinationPhone: destinationPhone.trim() || null,
           assigneeId: assigneeId || null,
           callTypeId,
           memo: memo.trim() || null,
           isAppointment: status === "APPOINTMENT",
           status,
           createdAt,
+          scriptFlow: flowOverride ?? buildScriptFlow(),
         }),
       });
       if (!res.ok) {
@@ -123,11 +167,41 @@ export function LiveCallClient() {
   }
 
   function moveByChoice(choice: ScriptEdge) {
+    const newStep: ScriptFlowStep = {
+      edgeId: choice.id,
+      fromNodeId: currentNodeId || "",
+      toNodeId: choice.toNodeId ?? null,
+      choiceKey: choice.choiceKey,
+      choiceLabel: choice.choiceLabel,
+      at: new Date().toISOString(),
+    };
     if (choice.toNodeId) {
+      setFlowSteps((prev) => [...prev, newStep]);
+      setNodePath((prev) => [...prev, choice.toNodeId!]);
       setCurrentNodeId(choice.toNodeId);
       return;
     }
-    void saveCall(resultStatus);
+    const nextFlow: ScriptFlowData | null =
+      callTypeId && nodePath.length > 0
+        ? {
+            version: 1,
+            callTypeId,
+            nodePath,
+            steps: [...flowSteps, newStep],
+          }
+        : null;
+    setFlowSteps((prev) => [...prev, newStep]);
+    void saveCall(resultStatus, nextFlow);
+  }
+
+  function buildScriptFlow(): ScriptFlowData | null {
+    if (!callTypeId || nodePath.length === 0) return null;
+    return {
+      version: 1,
+      callTypeId,
+      nodePath,
+      steps: flowSteps,
+    };
   }
 
   return (
@@ -149,6 +223,13 @@ export function LiveCallClient() {
           <div className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
             <div className="text-xs font-medium tracking-wide text-zinc-500">電話先</div>
             <div className="mt-1 text-lg font-semibold text-zinc-900">{destination || "未設定"}</div>
+            {(destinationContactName || destinationPhone) && (
+              <div className="mt-2 space-y-0.5 text-xs text-zinc-600">
+                {destinationContactName && <div>担当者名: {destinationContactName}</div>}
+                {destinationContactKana && <div>ふりがな: {destinationContactKana}</div>}
+                {destinationPhone && <div>電話番号: {destinationPhone}</div>}
+              </div>
+            )}
           </div>
 
           <div className="space-y-4 rounded-xl border-2 border-zinc-400 bg-white p-5 shadow-md">
@@ -162,7 +243,7 @@ export function LiveCallClient() {
                 <div className="text-xs font-medium text-zinc-500">現在のステップ</div>
                 <div className="mt-1 text-lg font-bold text-zinc-900">{currentNode.title}</div>
                 <p className="mt-2 whitespace-pre-wrap rounded-md border border-zinc-300 bg-white px-3 py-2.5 text-base leading-relaxed text-zinc-800">
-                  {currentNode.body || "（本文なし）"}
+                  {replaceScriptTokens(currentNode.body) || "（本文なし）"}
                 </p>
               </div>
               <div className="rounded-lg border border-zinc-300 bg-zinc-50 p-3.5">
@@ -206,7 +287,7 @@ export function LiveCallClient() {
                     </div>
                     <p className="mt-1 line-clamp-3 whitespace-pre-wrap text-[11px] leading-relaxed text-zinc-600">
                       {yesNextNode?.body?.trim()
-                        ? yesNextNode.body
+                        ? replaceScriptTokens(yesNextNode.body)
                         : yesNextNode
                           ? "（スクリプト本文なし）"
                           : "（次ステップなし）"}
@@ -219,7 +300,7 @@ export function LiveCallClient() {
                     </div>
                     <p className="mt-1 line-clamp-3 whitespace-pre-wrap text-[11px] leading-relaxed text-zinc-600">
                       {noNextNode?.body?.trim()
-                        ? noNextNode.body
+                        ? replaceScriptTokens(noNextNode.body)
                         : noNextNode
                           ? "（スクリプト本文なし）"
                           : "（次ステップなし）"}

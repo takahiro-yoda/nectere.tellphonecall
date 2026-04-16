@@ -18,6 +18,10 @@ model Assignee {
 model Call {
   id            String    @id @default(cuid())
   destination   String
+  destinationContactName String?
+  destinationContactKana String?
+  /// 電話番号（数字のみ）
+  destinationPhone       String?
   memo         String?
   assigneeId   String?
   assignee     Assignee?  @relation(fields: [assigneeId], references: [id], onDelete: SetNull)
@@ -27,6 +31,8 @@ model Call {
   /// 架電結果: APPOINTMENT=アポ, NO_ANSWER=未応答, OTHER=つながったがアポにならず, SKIPPED=スキップ
   status        CallStatus @default(OTHER)
   createdAt    DateTime  @default(now())
+
+  @@index([destinationPhone])
 }
 
 enum CallStatus {

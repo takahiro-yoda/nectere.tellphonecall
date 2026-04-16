@@ -29,7 +29,13 @@ export function AddCallForm({ onAdded }: Props) {
   const [destination, setDestination] = useState("");
   const [assigneeId, setAssigneeId] = useState<string | null>(null);
   const [memo, setMemo] = useState("");
+  const [destinationContactName, setDestinationContactName] = useState("");
+  const [destinationContactKana, setDestinationContactKana] = useState("");
+  const [destinationPhone, setDestinationPhone] = useState("");
+  const [contactKanaTouched, setContactKanaTouched] = useState(false);
+  const [kanaLoading, setKanaLoading] = useState(false);
   const [dateInput, setDateInput] = useState("");
+  const [timeInput, setTimeInput] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -43,6 +49,7 @@ export function AddCallForm({ onAdded }: Props) {
         "-" +
         String(now.getDate()).padStart(2, "0")
     );
+    setTimeInput(`${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`);
   }
 
   useEffect(() => {
@@ -89,9 +96,54 @@ export function AddCallForm({ onAdded }: Props) {
 
   function resetFormState() {
     setDestination("");
+    setDestinationContactName("");
+    setDestinationContactKana("");
+    setDestinationPhone("");
+    setContactKanaTouched(false);
     setAssigneeId(null);
     setMemo("");
   }
+
+  function toHiragana(value: string): string {
+    return value.replace(/[\u30a1-\u30f6]/g, (ch) => String.fromCharCode(ch.charCodeAt(0) - 0x60));
+  }
+
+  function sanitizePhoneInput(value: string): string {
+    return value.replace(/\D/g, "");
+  }
+
+  useEffect(() => {
+    if (contactKanaTouched && destinationContactKana.trim() !== "") return;
+    const source = destinationContactName.trim();
+    if (source === "") {
+      setDestinationContactKana("");
+      setKanaLoading(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    const timer = window.setTimeout(async () => {
+      setKanaLoading(true);
+      try {
+        const res = await fetch(`/api/furigana?text=${encodeURIComponent(source)}`, {
+          signal: controller.signal,
+        });
+        if (!res.ok) throw new Error("failed");
+        const data = (await res.json()) as { hiragana?: string };
+        const predicted = (data.hiragana ?? "").trim();
+        setDestinationContactKana(predicted !== "" ? predicted : toHiragana(source).replace(/\s+/g, ""));
+      } catch {
+        setDestinationContactKana(toHiragana(source).replace(/\s+/g, ""));
+      } finally {
+        setKanaLoading(false);
+      }
+    }, 220);
+
+    return () => {
+      controller.abort();
+      window.clearTimeout(timer);
+    };
+  }, [destinationContactName, contactKanaTouched, destinationContactKana]);
 
   async function saveCall(status: CallStatus) {
     if (!destination.trim()) return;
@@ -103,13 +155,16 @@ export function AddCallForm({ onAdded }: Props) {
     setSubmitting(true);
     try {
       const createdAt = dateInput
-        ? new Date(`${dateInput}T12:00:00`).toISOString()
+        ? new Date(`${dateInput}T${timeInput || "12:00"}:00`).toISOString()
         : undefined;
       const res = await fetch("/api/calls", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           destination: destination.trim(),
+          destinationContactName: destinationContactName.trim() || null,
+          destinationContactKana: destinationContactKana.trim() || null,
+          destinationPhone: destinationPhone.trim() || null,
           assigneeId: assigneeId || null,
           callTypeId,
           memo: memo.trim() || null,
@@ -177,8 +232,12 @@ export function AddCallForm({ onAdded }: Props) {
       destination: destination.trim(),
       callTypeId,
       date: dateInput,
+      time: timeInput,
     });
     if (assigneeId) params.set("assigneeId", assigneeId);
+    if (destinationContactName.trim()) params.set("destinationContactName", destinationContactName.trim());
+    if (destinationContactKana.trim()) params.set("destinationContactKana", destinationContactKana.trim());
+    if (destinationPhone.trim()) params.set("destinationPhone", destinationPhone.trim());
     if (memo.trim()) params.set("memo", memo.trim());
     router.push(`/calls/live?${params.toString()}`);
     setOpen(false);
@@ -232,6 +291,18 @@ export function AddCallForm({ onAdded }: Props) {
                 />
               </div>
               <div>
+                <label htmlFor="call-time" className="block text-sm font-medium text-zinc-700">
+                  時刻
+                </label>
+                <input
+                  id="call-time"
+                  type="time"
+                  value={timeInput}
+                  onChange={(e) => setTimeInput(e.target.value)}
+                  className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-zinc-900"
+                />
+              </div>
+              <div>
                 <label htmlFor="call-destination" className="block text-sm font-medium text-zinc-700">
                   電話先（必須）
                 </label>
@@ -242,6 +313,54 @@ export function AddCallForm({ onAdded }: Props) {
                   value={destination}
                   onChange={(e) => setDestination(e.target.value)}
                   placeholder="会社名・担当者名など"
+                  className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-zinc-900 placeholder:text-zinc-400"
+                />
+              </div>
+              <div>
+                <label htmlFor="call-destination-contact-name" className="block text-sm font-medium text-zinc-700">
+                  担当者名
+                </label>
+                <input
+                  id="call-destination-contact-name"
+                  type="text"
+                  value={destinationContactName}
+                  onChange={(e) => {
+                    setDestinationContactName(e.target.value);
+                  }}
+                  placeholder="例: 山田 太郎"
+                  className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-zinc-900 placeholder:text-zinc-400"
+                />
+              </div>
+              <div>
+                <label htmlFor="call-destination-contact-kana" className="block text-sm font-medium text-zinc-700">
+                  ふりがな
+                </label>
+                <input
+                  id="call-destination-contact-kana"
+                  type="text"
+                  value={destinationContactKana}
+                  onChange={(e) => {
+                    const nextKana = e.target.value;
+                    setDestinationContactKana(nextKana);
+                    setContactKanaTouched(nextKana.trim() !== "");
+                  }}
+                  placeholder="例: やまだたろう"
+                  className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-zinc-900 placeholder:text-zinc-400"
+                />
+                {kanaLoading && (
+                  <p className="mt-1 text-xs text-zinc-500">ふりがなを予測中…</p>
+                )}
+              </div>
+              <div>
+                <label htmlFor="call-destination-phone" className="block text-sm font-medium text-zinc-700">
+                  電話番号（ハイフンなし）
+                </label>
+                <input
+                  id="call-destination-phone"
+                  type="tel"
+                  value={destinationPhone}
+                  onChange={(e) => setDestinationPhone(sanitizePhoneInput(e.target.value))}
+                  placeholder="例: 0312345678"
                   className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-zinc-900 placeholder:text-zinc-400"
                 />
               </div>

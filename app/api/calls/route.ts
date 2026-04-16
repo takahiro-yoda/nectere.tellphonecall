@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { parseCallMemo, serializeCallMemo, type ScriptFlowData } from "@/lib/callFlow";
 import { getRangeForView, parseCustomDateRange, type ViewPeriod } from "@/lib/dateUtils";
 
 const RANGE_MAP: Record<string, ViewPeriod> = {
@@ -34,14 +35,49 @@ export async function GET(request: NextRequest) {
   const calls = await prisma.call.findMany({
     where: { createdAt: { gte: start, lte: end } },
     orderBy: { createdAt: "desc" },
-    include: { assignee: true, callType: true },
+    select: {
+      id: true,
+      destination: true,
+      destinationContactName: true,
+      destinationContactKana: true,
+      destinationPhone: true,
+      memo: true,
+      assigneeId: true,
+      assignee: { select: { id: true, name: true, color: true } },
+      callTypeId: true,
+      callType: { select: { id: true, name: true } },
+      isAppointment: true,
+      status: true,
+      createdAt: true,
+    },
   });
-  return NextResponse.json(calls);
+  return NextResponse.json(
+    calls.map((call) => {
+      const parsed = parseCallMemo(call.memo);
+      return {
+        ...call,
+        memo: parsed.memoText,
+        scriptFlow: parsed.scriptFlow,
+      };
+    }),
+  );
 }
 
 export async function POST(request: NextRequest) {
   const body = await request.json();
-  const { destination, memo, createdAt, assigneeId, callTypeId, isAppointment, status } = body;
+  const {
+    destination,
+    destinationContactName,
+    destinationContactKana,
+    destinationPhone,
+    memo,
+    createdAt,
+    assigneeId,
+    callTypeId,
+    isAppointment,
+    status,
+    scriptFlow,
+  } = body;
 
   if (!destination || typeof destination !== "string" || destination.trim() === "") {
     return NextResponse.json({ error: "destination is required" }, { status: 400 });
@@ -51,7 +87,22 @@ export async function POST(request: NextRequest) {
     const created = await prisma.call.create({
       data: {
         destination: destination.trim(),
-        memo: memo != null ? String(memo).trim() || null : null,
+        destinationContactName:
+          typeof destinationContactName === "string" && destinationContactName.trim() !== ""
+            ? destinationContactName.trim()
+            : null,
+        destinationContactKana:
+          typeof destinationContactKana === "string" && destinationContactKana.trim() !== ""
+            ? destinationContactKana.trim()
+            : null,
+        destinationPhone:
+          typeof destinationPhone === "string" && destinationPhone.trim() !== ""
+            ? String(destinationPhone).replace(/\D/g, "")
+            : null,
+        memo: serializeCallMemo({
+          memoText: memo != null ? String(memo).trim() || null : null,
+          scriptFlow: isScriptFlowData(scriptFlow) ? scriptFlow : null,
+        }),
         assignee:
           assigneeId == null || assigneeId === ""
             ? undefined
@@ -78,7 +129,12 @@ export async function POST(request: NextRequest) {
       },
       include: { assignee: true, callType: true },
     });
-    return NextResponse.json(created);
+    const parsed = parseCallMemo(created.memo);
+    return NextResponse.json({
+      ...created,
+      memo: parsed.memoText,
+      scriptFlow: parsed.scriptFlow,
+    });
   } catch (e: unknown) {
     const detail = e instanceof Error ? e.message : String(e);
     console.error("Failed to create call", e);
@@ -90,4 +146,10 @@ export async function POST(request: NextRequest) {
       { status: 500 },
     );
   }
+}
+
+function isScriptFlowData(value: unknown): value is ScriptFlowData {
+  if (!value || typeof value !== "object") return false;
+  const data = value as Partial<ScriptFlowData>;
+  return data.version === 1 && typeof data.callTypeId === "string" && Array.isArray(data.nodePath) && Array.isArray(data.steps);
 }

@@ -19,6 +19,9 @@ type CallType = {
 type Call = {
   id: string;
   destination: string;
+  destinationContactName?: string | null;
+  destinationContactKana?: string | null;
+  destinationPhone?: string | null;
   memo: string | null;
   assigneeId: string | null;
   assignee: { id: string; name: string; color: string | null } | null;
@@ -38,10 +41,14 @@ export function EditCallModal({ call, onClose }: Props) {
   const [assignees, setAssignees] = useState<Assignee[]>([]);
   const [callTypes, setCallTypes] = useState<CallType[]>([]);
   const [destination, setDestination] = useState("");
+  const [destinationContactName, setDestinationContactName] = useState("");
+  const [destinationContactKana, setDestinationContactKana] = useState("");
+  const [destinationPhone, setDestinationPhone] = useState("");
   const [assigneeId, setAssigneeId] = useState<string | null>(null);
   const [callTypeId, setCallTypeId] = useState<string | null>(null);
   const [memo, setMemo] = useState("");
   const [dateInput, setDateInput] = useState("");
+  const [timeInput, setTimeInput] = useState("");
   const [isAppointment, setIsAppointment] = useState(false);
   const [saving, setSaving] = useState(false);
   const [resultStatus, setResultStatus] = useState<"APPOINTMENT" | "NO_ANSWER" | "OTHER" | "SKIPPED">("OTHER");
@@ -49,6 +56,9 @@ export function EditCallModal({ call, onClose }: Props) {
   useEffect(() => {
     if (!call) return;
     setDestination(call.destination);
+    setDestinationContactName(call.destinationContactName ?? "");
+    setDestinationContactKana(call.destinationContactKana ?? "");
+    setDestinationPhone(call.destinationPhone ?? "");
     setAssigneeId(call.assigneeId ?? null);
     setCallTypeId(call.callTypeId ?? null);
     setMemo(call.memo ?? "");
@@ -57,6 +67,9 @@ export function EditCallModal({ call, onClose }: Props) {
     const mm = String(d.getMonth() + 1).padStart(2, "0");
     const dd = String(d.getDate()).padStart(2, "0");
     setDateInput(`${yyyy}-${mm}-${dd}`);
+    const hh = String(d.getHours()).padStart(2, "0");
+    const mi = String(d.getMinutes()).padStart(2, "0");
+    setTimeInput(`${hh}:${mi}`);
     setIsAppointment(call.isAppointment);
     setResultStatus(
       call.status === "APPOINTMENT" ||
@@ -102,12 +115,15 @@ export function EditCallModal({ call, onClose }: Props) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           destination: destination.trim(),
+          destinationContactName: destinationContactName.trim() || null,
+          destinationContactKana: destinationContactKana.trim() || null,
+          destinationPhone: destinationPhone.trim() || null,
           assigneeId: assigneeId || null,
           callTypeId: callTypeId || null,
           memo: memo.trim() || null,
           isAppointment: isAppointmentFlag,
           status: resultStatus,
-          createdAt: dateInput ? new Date(`${dateInput}T12:00:00`).toISOString() : undefined,
+          createdAt: dateInput ? new Date(`${dateInput}T${timeInput || "12:00"}:00`).toISOString() : undefined,
         }),
       });
       if (!res.ok) throw new Error("Failed");
@@ -138,6 +154,18 @@ export function EditCallModal({ call, onClose }: Props) {
             />
           </div>
           <div>
+            <label htmlFor="edit-time" className="block text-sm font-medium text-zinc-700">
+              時刻
+            </label>
+            <input
+              id="edit-time"
+              type="time"
+              value={timeInput}
+              onChange={(e) => setTimeInput(e.target.value)}
+              className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-zinc-900"
+            />
+          </div>
+          <div>
             <label htmlFor="edit-destination" className="block text-sm font-medium text-zinc-700">
               電話先（必須）
             </label>
@@ -147,6 +175,42 @@ export function EditCallModal({ call, onClose }: Props) {
               required
               value={destination}
               onChange={(e) => setDestination(e.target.value)}
+              className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-zinc-900"
+            />
+          </div>
+          <div>
+            <label htmlFor="edit-destination-contact-name" className="block text-sm font-medium text-zinc-700">
+              担当者名
+            </label>
+            <input
+              id="edit-destination-contact-name"
+              type="text"
+              value={destinationContactName}
+              onChange={(e) => setDestinationContactName(e.target.value)}
+              className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-zinc-900"
+            />
+          </div>
+          <div>
+            <label htmlFor="edit-destination-contact-kana" className="block text-sm font-medium text-zinc-700">
+              ふりがな
+            </label>
+            <input
+              id="edit-destination-contact-kana"
+              type="text"
+              value={destinationContactKana}
+              onChange={(e) => setDestinationContactKana(e.target.value)}
+              className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-zinc-900"
+            />
+          </div>
+          <div>
+            <label htmlFor="edit-destination-phone" className="block text-sm font-medium text-zinc-700">
+              電話番号（ハイフンなし）
+            </label>
+            <input
+              id="edit-destination-phone"
+              type="tel"
+              value={destinationPhone}
+              onChange={(e) => setDestinationPhone(e.target.value.replace(/\D/g, ""))}
               className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-zinc-900"
             />
           </div>
