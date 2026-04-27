@@ -18,6 +18,7 @@ type Call = {
   callCode?: string | null;
   destination: string;
   destinationContactName?: string | null;
+  destinationContactKana?: string | null;
   destinationPhone?: string | null;
   memo: string | null;
   assigneeId: string | null;
@@ -54,6 +55,8 @@ export function CallList({
   const [loading, setLoading] = useState(false);
   const [editingCall, setEditingCall] = useState<Call | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [globalSearchResults, setGlobalSearchResults] = useState<Call[]>([]);
+  const [globalSearchLoading, setGlobalSearchLoading] = useState(false);
   const router = useRouter();
 
   const filteredCalls = searchQuery.trim()
@@ -67,6 +70,20 @@ export function CallList({
         return dest.includes(q) || assigneeName.includes(q) || memo.includes(q) || contactName.includes(q) || phone.includes(q);
       })
     : calls;
+  const usingGlobalSearch = searchQuery.trim().length > 0;
+  const displayedCalls = usingGlobalSearch ? globalSearchResults : filteredCalls;
+  const showList = open || alwaysOpen;
+
+  function buildPrefillHref(call: Call): string {
+    const params = new URLSearchParams({
+      prefillDestination: call.destination,
+    });
+    if (call.destinationContactName?.trim()) params.set("prefillContactName", call.destinationContactName.trim());
+    if (call.destinationContactKana?.trim()) params.set("prefillContactKana", call.destinationContactKana.trim());
+    if (call.destinationPhone?.trim()) params.set("prefillPhone", call.destinationPhone.trim());
+    if (call.callTypeId?.trim()) params.set("prefillCallTypeId", call.callTypeId.trim());
+    return `/calls?${params.toString()}`;
+  }
 
   async function handleDelete(call: Call) {
     if (!confirm(`「${call.destination}」の架電記録を削除しますか？`)) return;
@@ -110,11 +127,40 @@ export function CallList({
       .finally(() => setLoading(false));
   }, [open, alwaysOpen, range, editingCall, isCustomRange, customFrom, customTo]);
 
+  useEffect(() => {
+    if (!showList) return;
+    const q = searchQuery.trim();
+    if (!q) {
+      setGlobalSearchResults([]);
+      setGlobalSearchLoading(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    const timer = window.setTimeout(async () => {
+      setGlobalSearchLoading(true);
+      try {
+        const params = new URLSearchParams({ q, mode: "full" });
+        const res = await fetch(`/api/calls/search?${params.toString()}`, { signal: controller.signal });
+        if (!res.ok) throw new Error("search failed");
+        const data = (await res.json()) as { items?: Call[] };
+        setGlobalSearchResults(Array.isArray(data.items) ? data.items : []);
+      } catch {
+        setGlobalSearchResults([]);
+      } finally {
+        setGlobalSearchLoading(false);
+      }
+    }, 250);
+
+    return () => {
+      controller.abort();
+      window.clearTimeout(timer);
+    };
+  }, [searchQuery, showList]);
+
   function toggle() {
     setOpen((o) => !o);
   }
-
-  const showList = open || alwaysOpen;
 
   return (
     <div className={alwaysOpen ? "flex h-full min-h-0 flex-col" : "w-full"}>
@@ -168,36 +214,34 @@ export function CallList({
               ))}
             </div>
           )}
-          {!loading && calls.length > 0 && (
-            <div className="border-b border-zinc-200 px-4 py-3">
-              <label htmlFor="call-list-search" className="sr-only">
-                名前で検索
-              </label>
-              <input
-                id="call-list-search"
-                type="search"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="電話先・担当者・メモで検索…"
-                className="w-full rounded-lg border border-zinc-300 bg-white px-4 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
-              />
-              {searchQuery.trim() && (
-                <p className="mt-1.5 text-xs text-zinc-500">
-                  {filteredCalls.length}件
-                  {filteredCalls.length !== calls.length && `（全${calls.length}件中）`}
-                </p>
-              )}
-            </div>
-          )}
-          {loading ? (
+          <div className="border-b border-zinc-200 px-4 py-3">
+            <label htmlFor="call-list-search" className="block text-xs font-semibold tracking-wide text-zinc-600">
+              電話先 検索
+            </label>
+            <input
+              id="call-list-search"
+              type="search"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="電話先・担当者・電話番号・メモで検索…"
+              className="mt-1.5 w-full rounded-lg border border-zinc-300 bg-white px-4 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+            />
+            {searchQuery.trim() && (
+              <p className="mt-1.5 text-xs text-zinc-500">
+                {usingGlobalSearch ? globalSearchResults.length : filteredCalls.length}件
+                {usingGlobalSearch ? "（全期間）" : filteredCalls.length !== calls.length ? `（全${calls.length}件中）` : ""}
+              </p>
+            )}
+          </div>
+          {loading || globalSearchLoading ? (
             <div className="p-10 text-center text-zinc-500">読み込み中…</div>
-          ) : calls.length === 0 ? (
+          ) : !usingGlobalSearch && calls.length === 0 ? (
             <div className="p-10 text-center text-zinc-500">
               {isCustomRange
                 ? "指定期間の架電はありません。"
                 : `${range === "week" ? "今週" : range === "last-week" ? "先週" : range === "month" ? "今月" : "先月"}の架電はまだありません。`}
             </div>
-          ) : filteredCalls.length === 0 ? (
+          ) : displayedCalls.length === 0 ? (
             <div className="p-10 text-center text-zinc-500">
               「{searchQuery.trim()}」に一致する架電はありません。
             </div>
@@ -226,10 +270,11 @@ export function CallList({
                     </th>
                     <th className="w-0 px-3 py-3.5"></th>
                     <th className="w-0 px-3 py-3.5"></th>
+                    <th className="w-0 px-3 py-3.5"></th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredCalls.map((call, i) => (
+                  {displayedCalls.map((call, i) => (
                     <tr
                       key={call.id}
                       onClick={() => router.push(`/calls/${call.id}/flow`)}
@@ -324,6 +369,16 @@ export function CallList({
                             <span className="text-zinc-300">—</span>
                           )}
                         </span>
+                      </td>
+                      <td className="px-3 py-4">
+                        <Link
+                          href={buildPrefillHref(call)}
+                          onClick={(e) => e.stopPropagation()}
+                          className="inline-flex whitespace-nowrap rounded-lg border border-sky-200 bg-sky-50 px-2.5 py-1.5 text-xs font-semibold text-sky-700 transition hover:bg-sky-100"
+                          title="記録開始画面へ連絡先を入力して移動"
+                        >
+                          折り返し受信
+                        </Link>
                       </td>
                       <td className="px-3 py-4">
                         <button

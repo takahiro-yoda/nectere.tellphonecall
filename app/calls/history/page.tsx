@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { HamburgerMenu } from "@/app/components/HamburgerMenu";
 
 function formatMonthValue(date: Date): string {
@@ -39,6 +40,8 @@ type CallRow = {
 };
 
 export default function CallsHistoryPage() {
+  const searchParams = useSearchParams();
+  const initialQuery = searchParams.get("q") ?? "";
   const [view, setView] = useState<ViewKey>("month");
   const [month, setMonth] = useState(() => formatMonthValue(new Date()));
   const [day, setDay] = useState(() => {
@@ -53,7 +56,7 @@ export default function CallsHistoryPage() {
   });
   const [pageSize, setPageSize] = useState<50 | 100>(50);
   const [page, setPage] = useState(1);
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchQuery, setSearchQuery] = useState(initialQuery);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [items, setItems] = useState<CallRow[]>([]);
@@ -79,6 +82,10 @@ export default function CallsHistoryPage() {
   useEffect(() => {
     setPage(1);
   }, [view, month, day, year, customFrom, customTo, pageSize]);
+
+  useEffect(() => {
+    setSearchQuery(initialQuery);
+  }, [initialQuery]);
 
   useEffect(() => {
     async function load() {

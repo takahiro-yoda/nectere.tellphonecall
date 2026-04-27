@@ -101,7 +101,7 @@ export function LiveCallClient() {
   };
 
   useEffect(() => {
-    function onLiveKeyDown(e: KeyboardEvent) {
+    function onLiveKeyDown(e: KeyboardEvent) { 
       const target = e.target as HTMLElement;
       const isInput =
         target.tagName === "INPUT" ||

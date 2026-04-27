@@ -1,6 +1,5 @@
 import Link from "next/link";
-import { getCounts } from "@/lib/calls";
-import { getContractCounts } from "@/lib/contracts";
+import { HomeDestinationSearch } from "./components/HomeDestinationSearch";
 
 export const dynamic = "force-dynamic";
 
@@ -50,15 +49,6 @@ function ArrowRight({ className }: { className?: string }) {
 }
 
 export default async function HomeHubPage() {
-  const [callCounts, contractCounts] = await Promise.all([getCounts(), getContractCounts()]);
-
-  const stats = [
-    { label: "今週の架電", value: callCounts.weekCount, suffix: "件", accent: "from-sky-400 to-cyan-300" },
-    { label: "今月の架電", value: callCounts.monthCount, suffix: "件", accent: "from-violet-400 to-fuchsia-300" },
-    { label: "今週の契約", value: contractCounts.weekCount, suffix: "件", accent: "from-amber-400 to-orange-300" },
-    { label: "今月の契約", value: contractCounts.monthCount, suffix: "件", accent: "from-emerald-400 to-teal-300" },
-  ];
-
   return (
     <div className="min-h-screen bg-zinc-100">
       <div className="relative overflow-hidden border-b border-zinc-800/80 bg-zinc-950 text-zinc-100">
@@ -81,23 +71,7 @@ export default async function HomeHubPage() {
             Wlecome to dashboard
           </p>
 
-          <div className="mt-10 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {stats.map((s) => (
-              <div
-                key={s.label}
-                className="group relative overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4 shadow-lg shadow-black/20 backdrop-blur-sm transition hover:border-zinc-700"
-              >
-                <div
-                  className={`pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full bg-gradient-to-br ${s.accent} opacity-20 blur-2xl transition group-hover:opacity-30`}
-                />
-                <p className="text-xs font-medium text-zinc-500">{s.label}</p>
-                <p className="mt-2 flex items-baseline gap-1">
-                  <span className="text-3xl font-bold tabular-nums tracking-tight text-white">{s.value}</span>
-                  <span className="text-sm text-zinc-500">{s.suffix}</span>
-                </p>
-              </div>
-            ))}
-          </div>
+          <HomeDestinationSearch />
         </div>
       </div>
 
@@ -112,7 +86,7 @@ export default async function HomeHubPage() {
         <div className="grid gap-5 lg:grid-cols-12 lg:gap-6">
           <Link
             href="/calls"
-            className="group relative flex flex-col justify-between overflow-hidden rounded-3xl border border-zinc-200/90 bg-white p-8 shadow-sm transition lg:col-span-7 lg:min-h-[280px] lg:p-10 hover:border-zinc-300 hover:shadow-xl"
+            className="group relative flex flex-col justify-between overflow-hidden rounded-3xl border border-zinc-200/90 bg-white p-8 shadow-sm transition lg:col-span-6 lg:min-h-[240px] lg:p-9 hover:border-zinc-300 hover:shadow-xl"
           >
             <div className="flex items-start justify-between gap-4">
               <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-sky-50 text-sky-700 ring-1 ring-sky-100 transition group-hover:scale-[1.03]">
@@ -122,7 +96,7 @@ export default async function HomeHubPage() {
                 <ArrowRight className="h-5 w-5 -translate-x-0.5 transition group-hover:translate-x-0" />
               </span>
             </div>
-            <div className="mt-8">
+            <div className="mt-7">
               <h3 className="text-2xl font-bold tracking-tight text-zinc-900">架電ダッシュボード</h3>
               <p className="mt-3 max-w-md text-sm leading-relaxed text-zinc-600">
                 架電数・アポ率・応答率、担当者別の内訳と電話先一覧。日次チャートで期間を切り替えて確認できます。
@@ -131,26 +105,43 @@ export default async function HomeHubPage() {
             <p className="mt-6 text-xs font-semibold uppercase tracking-wider text-sky-600">Open metrics →</p>
           </Link>
 
-          <div className="flex flex-col gap-5 lg:col-span-5">
-            <Link
-              href="/contracts"
-              className="group flex flex-1 flex-col rounded-3xl border border-zinc-200/90 bg-white p-7 shadow-sm transition hover:border-amber-200/80 hover:shadow-lg"
-            >
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-50 text-amber-800 ring-1 ring-amber-100">
-                  <IconChart className="h-6 w-6" />
-                </div>
-                <ArrowRight className="h-5 w-5 shrink-0 text-zinc-300 transition group-hover:text-amber-700" />
+          <Link
+            href="/contracts"
+            className="group flex flex-col justify-between rounded-3xl border border-zinc-200/90 bg-white p-8 shadow-sm transition lg:col-span-6 lg:min-h-[240px] lg:p-9 hover:border-amber-200/80 hover:shadow-lg"
+          >
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-50 text-amber-800 ring-1 ring-amber-100">
+                <IconChart className="h-6 w-6" />
               </div>
-              <h3 className="mt-5 text-xl font-bold text-zinc-900">契約・売上試算</h3>
-              <p className="mt-2 text-sm leading-relaxed text-zinc-600">
+              <ArrowRight className="h-5 w-5 shrink-0 text-zinc-300 transition group-hover:text-amber-700" />
+            </div>
+            <div className="mt-7">
+              <h3 className="text-2xl font-bold text-zinc-900">契約・売上試算</h3>
+              <p className="mt-3 text-sm leading-relaxed text-zinc-600">
                 目標とのギャップ、プラン別単価、月次の売上・利益推移グラフまで。
               </p>
-            </Link>
+            </div>
+          </Link>
 
+          <div className="grid gap-5 sm:grid-cols-2 lg:col-span-12">
+            <Link
+              href="/analytics"
+              className="group flex min-h-[180px] flex-col rounded-3xl border border-zinc-200/90 bg-white p-7 shadow-sm transition hover:border-emerald-200/80 hover:shadow-lg"
+            >
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100">
+                  <IconChart className="h-6 w-6" />
+                </div>
+                <ArrowRight className="h-5 w-5 shrink-0 text-zinc-300 transition group-hover:text-emerald-700" />
+              </div>
+              <h3 className="mt-5 text-xl font-bold text-zinc-900">アナリティクス</h3>
+              <p className="mt-2 text-sm leading-relaxed text-zinc-600">
+                流入から契約までのファネル、チャネル別ROI、ボトルネックをまとめて確認できます。
+              </p>
+            </Link>
             <Link
               href="/admin"
-              className="group flex items-center gap-5 rounded-3xl border border-zinc-200/90 bg-white px-7 py-6 shadow-sm transition hover:border-zinc-300 hover:shadow-md"
+              className="group flex min-h-[180px] items-center gap-5 rounded-3xl border border-zinc-200/90 bg-white px-7 py-6 shadow-sm transition hover:border-zinc-300 hover:shadow-md"
             >
               <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-zinc-100 text-zinc-700">
                 <IconSliders className="h-5 w-5" />

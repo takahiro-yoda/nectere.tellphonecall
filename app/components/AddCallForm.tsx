@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, useRef } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 
 type Assignee = {
   id: string;
@@ -23,6 +23,7 @@ type CallStatus = "APPOINTMENT" | "NO_ANSWER" | "OTHER" | "SKIPPED";
 
 export function AddCallForm({ onAdded }: Props) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [assignees, setAssignees] = useState<Assignee[]>([]);
   const [callTypes, setCallTypes] = useState<CallType[]>([]);
   const [callTypeId, setCallTypeId] = useState("");
@@ -39,6 +40,29 @@ export function AddCallForm({ onAdded }: Props) {
   const [submitting, setSubmitting] = useState(false);
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const prefillHandledRef = useRef(false);
+
+  useEffect(() => {
+    if (prefillHandledRef.current) return;
+    const prefillDestination = searchParams.get("prefillDestination") ?? "";
+    if (!prefillDestination.trim()) return;
+    prefillHandledRef.current = true;
+
+    setOpen(true);
+    setError(null);
+    setDestination(prefillDestination);
+    setDestinationContactName(searchParams.get("prefillContactName") ?? "");
+    setDestinationContactKana(searchParams.get("prefillContactKana") ?? "");
+    setDestinationPhone(searchParams.get("prefillPhone") ?? "");
+    setMemo(searchParams.get("prefillMemo") ?? "");
+
+    const prefillCallTypeId = searchParams.get("prefillCallTypeId") ?? "";
+    if (prefillCallTypeId) {
+      setCallTypeId(prefillCallTypeId);
+    }
+
+    router.replace("/calls");
+  }, [searchParams, router]);
 
   function setDefaultDate() {
     const now = new Date();
