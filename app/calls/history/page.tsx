@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { HamburgerMenu } from "@/app/components/HamburgerMenu";
@@ -39,7 +39,7 @@ type CallRow = {
   status?: "APPOINTMENT" | "NO_ANSWER" | "OTHER" | "SKIPPED";
 };
 
-export default function CallsHistoryPage() {
+function CallsHistoryContent() {
   const searchParams = useSearchParams();
   const initialQuery = searchParams.get("q") ?? "";
   const [view, setView] = useState<ViewKey>("month");
@@ -390,6 +390,14 @@ export default function CallsHistoryPage() {
         </div>
       </main>
     </div>
+  );
+}
+
+export default function CallsHistoryPage() {
+  return (
+    <Suspense fallback={<div className="p-10 text-center text-zinc-500">読み込み中…</div>}>
+      <CallsHistoryContent />
+    </Suspense>
   );
 }
 

@@ -3,7 +3,7 @@ import type { NextRequest } from "next/server";
 
 const COOKIE_NAME = "nectere_access";
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // ログイン画面とAPI、認証成功画面はそのまま
