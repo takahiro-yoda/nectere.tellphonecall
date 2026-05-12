@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { CustomerDestinationCombobox } from "./CustomerDestinationCombobox";
 
 type Assignee = {
   id: string;
@@ -165,19 +166,19 @@ export function EditCallModal({ call, onClose }: Props) {
               className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-zinc-900"
             />
           </div>
-          <div>
-            <label htmlFor="edit-destination" className="block text-sm font-medium text-zinc-700">
-              電話先（必須）
-            </label>
-            <input
-              id="edit-destination"
-              type="text"
-              required
-              value={destination}
-              onChange={(e) => setDestination(e.target.value)}
-              className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-zinc-900"
-            />
-          </div>
+          <CustomerDestinationCombobox
+            id="edit-destination"
+            label="電話先（必須）"
+            value={destination}
+            onChange={setDestination}
+            onPick={(row) => {
+              setDestinationContactName(row.destinationContactName?.trim() ?? "");
+              setDestinationContactKana(row.destinationContactKana?.trim() ?? "");
+              setDestinationPhone(row.destinationPhone?.replace(/\D/g, "") ?? "");
+            }}
+            required
+            inputClassName="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-zinc-900"
+          />
           <div>
             <label htmlFor="edit-destination-contact-name" className="block text-sm font-medium text-zinc-700">
               担当者名

@@ -16,6 +16,8 @@ const VIEW_TO_RANGE: Record<ViewPeriod, string> = {
 type Call = {
   id: string;
   callCode?: string | null;
+  customerId?: string | null;
+  leadId?: string | null;
   destination: string;
   destinationContactName?: string | null;
   destinationContactKana?: string | null;
@@ -82,6 +84,8 @@ export function CallList({
     if (call.destinationContactKana?.trim()) params.set("prefillContactKana", call.destinationContactKana.trim());
     if (call.destinationPhone?.trim()) params.set("prefillPhone", call.destinationPhone.trim());
     if (call.callTypeId?.trim()) params.set("prefillCallTypeId", call.callTypeId.trim());
+    if (call.customerId?.trim()) params.set("prefillCustomerId", call.customerId.trim());
+    if (call.leadId?.trim()) params.set("prefillLeadId", call.leadId.trim());
     return `/calls?${params.toString()}`;
   }
 

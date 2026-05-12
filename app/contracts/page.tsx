@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import {
   getContractCounts,
   getContractGoals,
@@ -200,13 +201,15 @@ export default async function ContractsPage() {
           </div>
         </section>
 
-        <section className="rounded-2xl border border-zinc-200/90 bg-white p-6 shadow-sm sm:p-8">
+        <section id="plans-pricing" className="scroll-mt-24 rounded-2xl border border-zinc-200/90 bg-white p-6 shadow-sm sm:p-8">
           <h2 className="text-lg font-semibold text-zinc-900">プラン（売上単価・変動経費）</h2>
           <p className="mt-1 text-sm text-zinc-500">
             モーダルでプランを追加・編集し、契約1件あたりの売上と変動経費をまとめて設定します。
           </p>
           <div className="mt-8">
-            <PlansManagerPanel initial={pricingMatrix} />
+            <Suspense fallback={<div className="text-sm text-zinc-500">読み込み中…</div>}>
+              <PlansManagerPanel initial={pricingMatrix} />
+            </Suspense>
           </div>
         </section>
 

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { CustomerDestinationCombobox } from "./CustomerDestinationCombobox";
 
 type Assignee = {
   id: string;
@@ -40,6 +41,8 @@ export function AddCallForm({ onAdded }: Props) {
   const [submitting, setSubmitting] = useState(false);
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [prefillCustomerId, setPrefillCustomerId] = useState("");
+  const [prefillLeadId, setPrefillLeadId] = useState("");
   const prefillHandledRef = useRef(false);
 
   useEffect(() => {
@@ -55,6 +58,8 @@ export function AddCallForm({ onAdded }: Props) {
     setDestinationContactKana(searchParams.get("prefillContactKana") ?? "");
     setDestinationPhone(searchParams.get("prefillPhone") ?? "");
     setMemo(searchParams.get("prefillMemo") ?? "");
+    setPrefillCustomerId(searchParams.get("prefillCustomerId")?.trim() ?? "");
+    setPrefillLeadId(searchParams.get("prefillLeadId")?.trim() ?? "");
 
     const prefillCallTypeId = searchParams.get("prefillCallTypeId") ?? "";
     if (prefillCallTypeId) {
@@ -123,6 +128,8 @@ export function AddCallForm({ onAdded }: Props) {
     setDestinationContactName("");
     setDestinationContactKana("");
     setDestinationPhone("");
+    setPrefillCustomerId("");
+    setPrefillLeadId("");
     setContactKanaTouched(false);
     setAssigneeId(null);
     setMemo("");
@@ -195,6 +202,8 @@ export function AddCallForm({ onAdded }: Props) {
           isAppointment: status === "APPOINTMENT",
           status,
           createdAt,
+          customerId: prefillCustomerId.trim() || null,
+          leadId: prefillLeadId.trim() || null,
         }),
       });
       if (!res.ok) {
@@ -263,6 +272,8 @@ export function AddCallForm({ onAdded }: Props) {
     if (destinationContactKana.trim()) params.set("destinationContactKana", destinationContactKana.trim());
     if (destinationPhone.trim()) params.set("destinationPhone", destinationPhone.trim());
     if (memo.trim()) params.set("memo", memo.trim());
+    if (prefillCustomerId.trim()) params.set("prefillCustomerId", prefillCustomerId.trim());
+    if (prefillLeadId.trim()) params.set("prefillLeadId", prefillLeadId.trim());
     router.push(`/calls/live?${params.toString()}`);
     setOpen(false);
     resetFormState();
@@ -326,20 +337,23 @@ export function AddCallForm({ onAdded }: Props) {
                   className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-zinc-900"
                 />
               </div>
-              <div>
-                <label htmlFor="call-destination" className="block text-sm font-medium text-zinc-700">
-                  電話先（必須）
-                </label>
-                <input
-                  id="call-destination"
-                  type="text"
-                  required
-                  value={destination}
-                  onChange={(e) => setDestination(e.target.value)}
-                  placeholder="会社名・担当者名など"
-                  className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-zinc-900 placeholder:text-zinc-400"
-                />
-              </div>
+              <CustomerDestinationCombobox
+                id="call-destination"
+                label="電話先（必須）"
+                value={destination}
+                onChange={setDestination}
+                onPick={(row) => {
+                  setDestinationContactName(row.destinationContactName?.trim() ?? "");
+                  setDestinationContactKana(row.destinationContactKana?.trim() ?? "");
+                  setDestinationPhone(
+                    row.destinationPhone ? sanitizePhoneInput(row.destinationPhone) : "",
+                  );
+                  setContactKanaTouched(!!row.destinationContactKana?.trim());
+                }}
+                placeholder="会社名・担当者名など"
+                required
+                inputClassName="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-zinc-900 placeholder:text-zinc-400"
+              />
               <div>
                 <label htmlFor="call-destination-contact-name" className="block text-sm font-medium text-zinc-700">
                   担当者名

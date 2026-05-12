@@ -5,6 +5,8 @@ import { useEffect, useMemo, useState } from "react";
 
 type SearchItem = {
   id: string;
+  customerId: string | null;
+  leadId: string | null;
   destination: string;
   destinationContactName: string | null;
   destinationContactKana: string | null;
@@ -118,7 +120,9 @@ export function HomeDestinationSearch() {
                             : ""
                         }${
                           item.destinationPhone?.trim() ? `&prefillPhone=${encodeURIComponent(item.destinationPhone.trim())}` : ""
-                        }${item.callTypeId ? `&prefillCallTypeId=${encodeURIComponent(item.callTypeId)}` : ""}`}
+                        }${item.callTypeId ? `&prefillCallTypeId=${encodeURIComponent(item.callTypeId)}` : ""}${
+                          item.customerId ? `&prefillCustomerId=${encodeURIComponent(item.customerId)}` : ""
+                        }${item.leadId ? `&prefillLeadId=${encodeURIComponent(item.leadId)}` : ""}`}
                         className="shrink-0 rounded-lg border border-sky-400/40 bg-sky-500/20 px-2.5 py-1.5 text-xs font-semibold text-sky-200 hover:bg-sky-500/30"
                       >
                         折り返し受信

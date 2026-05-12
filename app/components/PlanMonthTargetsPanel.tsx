@@ -150,6 +150,7 @@ export function PlanMonthTargetsPanel({ defaultPeriod, courses }: Props) {
       <h3 className="text-base font-semibold text-zinc-900">プラン別・月ごとの目標件数</h3>
       <p className="mt-1 text-sm text-zinc-500">
         対象月を選んで、料金表のプランごとの契約目標件数を入力します。1 件でも入っている月は、その月の「目標ベース」試算にプラン内訳を使います（今月のカードは常に当月）。
+        一覧の行をタップするとページ下部の「プラン」設定でそのプランの編集を開きます（目標件数の入力欄だけは行内のまま編集できます）。
       </p>
 
       <div className="mt-4 flex flex-wrap items-end gap-3">
@@ -189,39 +190,71 @@ export function PlanMonthTargetsPanel({ defaultPeriod, courses }: Props) {
         {loading && <span className="pb-2 text-xs text-zinc-400">読み込み中…</span>}
       </div>
 
-      <div className="mt-4 overflow-x-auto rounded-lg border border-zinc-200">
-        <table className="w-full min-w-[480px] text-left text-sm">
-          <thead>
-            <tr className="border-b border-zinc-200 bg-zinc-50">
-              <th className="px-4 py-3 font-semibold text-zinc-700">プラン</th>
-              <th className="px-4 py-3 font-semibold text-zinc-700">売上単価（試算）</th>
-              <th className="w-28 px-4 py-3 font-semibold text-zinc-700">{previousPeriods.prev2Label}</th>
-              <th className="w-28 px-4 py-3 font-semibold text-zinc-700">{previousPeriods.prev1Label}</th>
-              <th className="w-32 px-4 py-3 font-semibold text-zinc-700">目標（件）</th>
-            </tr>
-          </thead>
-          <tbody>
-            {courses.map((c) => (
-              <tr key={c.id} className="border-b border-zinc-100">
-                <td className="px-4 py-3 font-medium text-zinc-900">{c.name}</td>
-                <td className="px-4 py-3 tabular-nums text-zinc-600">{formatYen(c.revenueYen)}</td>
-                <td className="px-4 py-3 tabular-nums text-zinc-500">{prev2Targets[c.id] ?? 0} 件</td>
-                <td className="px-4 py-3 tabular-nums text-zinc-500">{prev1Targets[c.id] ?? 0} 件</td>
-                <td className="px-4 py-2">
-                  <input
-                    type="number"
-                    min={0}
-                    step={1}
-                    value={draft[c.id] ?? "0"}
-                    onChange={(e) => setDraft((p) => ({ ...p, [c.id]: e.target.value }))}
-                    disabled={loading}
-                    className="w-full max-w-[6.5rem] rounded border border-zinc-300 px-2 py-2 text-right tabular-nums text-zinc-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50"
-                  />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
+        {loading ? (
+          <div className="p-10 text-center text-zinc-500">読み込み中…</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[720px] text-left">
+              <thead>
+                <tr className="border-b border-zinc-200 bg-zinc-50">
+                  <th className="min-w-[160px] px-5 py-3.5 text-xs font-semibold uppercase tracking-wider text-zinc-500">
+                    プラン
+                  </th>
+                  <th className="min-w-[140px] px-5 py-3.5 text-xs font-semibold uppercase tracking-wider text-zinc-500">
+                    売上単価（試算）
+                  </th>
+                  <th className="whitespace-nowrap px-5 py-3.5 text-xs font-semibold uppercase tracking-wider text-zinc-500">
+                    {previousPeriods.prev2Label}
+                  </th>
+                  <th className="whitespace-nowrap px-5 py-3.5 text-xs font-semibold uppercase tracking-wider text-zinc-500">
+                    {previousPeriods.prev1Label}
+                  </th>
+                  <th className="w-36 px-5 py-3.5 text-xs font-semibold uppercase tracking-wider text-zinc-500">
+                    目標（件）
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {courses.map((c, idx) => (
+                  <tr
+                    key={c.id}
+                    onClick={() =>
+                      router.push(`/contracts?editCourse=${encodeURIComponent(c.id)}#plans-pricing`)
+                    }
+                    className={`cursor-pointer border-b border-zinc-100 transition-colors hover:bg-zinc-50/70 ${
+                      idx % 2 === 1 ? "bg-zinc-50/40" : ""
+                    }`}
+                  >
+                    <td className="px-5 py-4">
+                      <span className="text-base font-semibold text-zinc-900 underline-offset-2 transition hover:text-zinc-700 hover:underline">
+                        {c.name}
+                      </span>
+                    </td>
+                    <td className="px-5 py-4 text-sm tabular-nums text-zinc-600">{formatYen(c.revenueYen)}</td>
+                    <td className="whitespace-nowrap px-5 py-4 text-sm tabular-nums text-zinc-500">
+                      {prev2Targets[c.id] ?? 0} 件
+                    </td>
+                    <td className="whitespace-nowrap px-5 py-4 text-sm tabular-nums text-zinc-500">
+                      {prev1Targets[c.id] ?? 0} 件
+                    </td>
+                    <td className="px-5 py-3" onClick={(e) => e.stopPropagation()}>
+                      <input
+                        type="number"
+                        min={0}
+                        step={1}
+                        value={draft[c.id] ?? "0"}
+                        onChange={(e) => setDraft((p) => ({ ...p, [c.id]: e.target.value }))}
+                        disabled={loading}
+                        className="w-full max-w-[6.5rem] rounded border border-zinc-300 px-2 py-2 text-right text-sm tabular-nums text-zinc-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50"
+                      />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
       <div className="mt-4 flex flex-wrap items-center gap-3">
         <button

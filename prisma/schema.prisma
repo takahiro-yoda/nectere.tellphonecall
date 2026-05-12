@@ -15,8 +15,78 @@ model Assignee {
   calls     Call[]
 }
 
+/// 架電フォームと同じ項目＋メモ＋アクションログ（架電記録から自動追記）
+model Customer {
+  id                       String   @id @default(cuid())
+  /// 電話番号（数字のみ）または電話先名ベースの一意キー
+  matchKey                 String   @unique
+  destination              String
+  destinationContactName   String?
+  destinationContactKana   String?
+  destinationPhone         String?
+  /// 都道府県（47地域のいずれか、または自由入力。絞り込み用）
+  prefecture               String?
+  /// 番地・建物名など（都道府県以降）
+  addressLine              String?
+  email                    String?
+  memo                       String?
+  /// [{ date: ISO文字列, action: string, memo: string }, ...]
+  actionLogs                 Json     @default("[]")
+  createdAt                  DateTime @default(now())
+  updatedAt                  DateTime @updatedAt
+
+  calls Call[]
+
+  @@index([destination])
+  @@index([prefecture])
+  @@index([email])
+}
+
+/// 営業先リスト（顧客と同じ項目＋リードステータス）
+enum LeadStatus {
+  HOT_LEADS
+  WARM_LEADS
+  REACHED_OUT
+  OUTREACH_PLANNED
+  QUALIFIED
+  RESEARCHING
+  FOLLOWUP_NEEDED
+  NOT_INTERESTED
+  INACTIVE
+  UNQUALIFIED
+}
+
+model Lead {
+  id                     String     @id @default(cuid())
+  destination            String
+  destinationContactName String?
+  destinationContactKana String?
+  destinationPhone       String?
+  prefecture             String?
+  addressLine            String?
+  email                  String?
+  memo                     String?
+  actionLogs               Json       @default("[]")
+  status                   LeadStatus @default(RESEARCHING)
+  createdAt                DateTime   @default(now())
+  updatedAt                DateTime   @updatedAt
+
+  calls Call[]
+
+  @@index([destination])
+  @@index([status])
+  @@index([prefecture])
+  @@index([email])
+}
+
 model Call {
   id            String    @id @default(cuid())
+  /// 顧客リストから開始した架電など（任意）
+  customerId    String?
+  customer      Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  /// 営業先リストから開始した架電など（任意）
+  leadId        String?
+  lead          Lead?     @relation(fields: [leadId], references: [id], onDelete: SetNull)
   destination   String
   destinationContactName String?
   destinationContactKana String?
@@ -33,6 +103,8 @@ model Call {
   createdAt    DateTime  @default(now())
 
   @@index([destinationPhone])
+  @@index([customerId])
+  @@index([leadId])
 }
 
 enum CallStatus {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import type { PricingMatrixPayload } from "@/lib/pricingMatrix";
 import { effectiveRevenueYenPerCourse } from "@/lib/pricingMatrix";
 
@@ -17,6 +17,7 @@ function formatYen(n: number) {
 
 export function PlansManagerPanel({ initial }: Props) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [courses, setCourses] = useState<Course[]>(initial.courses);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Course | "new" | null>(null);
@@ -47,6 +48,21 @@ export function PlansManagerPanel({ initial }: Props) {
     setError(null);
     setOpen(true);
   }
+
+  useEffect(() => {
+    const id = searchParams.get("editCourse")?.trim();
+    if (!id) return;
+    const c = initial.courses.find((x) => x.id === id);
+    if (!c) {
+      router.replace("/contracts#plans-pricing", { scroll: false });
+      return;
+    }
+    openEdit(c);
+    requestAnimationFrame(() => {
+      document.getElementById("plans-pricing")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+    router.replace("/contracts#plans-pricing", { scroll: false });
+  }, [searchParams, initial.courses, router]);
 
   function closeModal() {
     setOpen(false);

@@ -20,6 +20,18 @@ function IconPhone({ className }: { className?: string }) {
   );
 }
 
+function IconUsers({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"
+      />
+    </svg>
+  );
+}
+
 function IconChart({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
@@ -68,7 +80,7 @@ export default async function HomeHubPage() {
           <p className="text-xs font-semibold uppercase tracking-[0.25em] text-zinc-500">Operations hub</p>
           <h1 className="mt-3 max-w-2xl text-4xl font-bold tracking-tight text-white sm:text-5xl">Nectere</h1>
           <p className="mt-4 max-w-xl text-sm leading-relaxed text-zinc-400 sm:text-base">
-            Wlecome to dashboard
+            Welcome to dashboard
           </p>
 
           <HomeDestinationSearch />
@@ -85,29 +97,71 @@ export default async function HomeHubPage() {
 
         <div className="grid gap-5 lg:grid-cols-12 lg:gap-6">
           <Link
-            href="/calls"
-            className="group relative flex flex-col justify-between overflow-hidden rounded-3xl border border-zinc-200/90 bg-white p-8 shadow-sm transition lg:col-span-6 lg:min-h-[240px] lg:p-9 hover:border-zinc-300 hover:shadow-xl"
+            href="/customers"
+            className="group relative flex flex-col justify-between overflow-hidden rounded-3xl border border-violet-200/90 bg-white p-8 shadow-sm transition lg:col-span-3 lg:min-h-[220px] lg:p-7 hover:border-violet-300 hover:shadow-xl"
           >
             <div className="flex items-start justify-between gap-4">
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-sky-50 text-sky-700 ring-1 ring-sky-100 transition group-hover:scale-[1.03]">
-                <IconPhone className="h-7 w-7" />
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-violet-50 text-violet-700 ring-1 ring-violet-100 transition group-hover:scale-[1.03]">
+                <IconUsers className="h-6 w-6" />
               </div>
-              <span className="flex h-10 w-10 items-center justify-center rounded-full border border-zinc-200 text-zinc-400 transition group-hover:border-zinc-300 group-hover:text-zinc-700">
-                <ArrowRight className="h-5 w-5 -translate-x-0.5 transition group-hover:translate-x-0" />
+              <span className="flex h-9 w-9 items-center justify-center rounded-full border border-zinc-200 text-zinc-400 transition group-hover:border-zinc-300 group-hover:text-zinc-700">
+                <ArrowRight className="h-4 w-4 -translate-x-0.5 transition group-hover:translate-x-0" />
               </span>
             </div>
-            <div className="mt-7">
-              <h3 className="text-2xl font-bold tracking-tight text-zinc-900">架電ダッシュボード</h3>
-              <p className="mt-3 max-w-md text-sm leading-relaxed text-zinc-600">
-                架電数・アポ率・応答率、担当者別の内訳と電話先一覧。日次チャートで期間を切り替えて確認できます。
+            <div className="mt-5">
+              <h3 className="text-xl font-bold tracking-tight text-zinc-900">顧客データベース</h3>
+              <p className="mt-2 text-sm leading-relaxed text-zinc-600">
+                架電と同じ項目で管理。記録から自動でアクションログに追記されます。
               </p>
             </div>
-            <p className="mt-6 text-xs font-semibold uppercase tracking-wider text-sky-600">Open metrics →</p>
+            <p className="mt-4 text-xs font-semibold uppercase tracking-wider text-violet-600">Open →</p>
+          </Link>
+
+          <Link
+            href="/leads"
+            className="group relative flex flex-col justify-between overflow-hidden rounded-3xl border border-rose-200/90 bg-white p-8 shadow-sm transition lg:col-span-3 lg:min-h-[220px] lg:p-7 hover:border-rose-300 hover:shadow-xl"
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-rose-50 text-rose-700 ring-1 ring-rose-100 transition group-hover:scale-[1.03]">
+                <IconUsers className="h-6 w-6" />
+              </div>
+              <span className="flex h-9 w-9 items-center justify-center rounded-full border border-zinc-200 text-zinc-400 transition group-hover:border-zinc-300 group-hover:text-zinc-700">
+                <ArrowRight className="h-4 w-4 -translate-x-0.5 transition group-hover:translate-x-0" />
+              </span>
+            </div>
+            <div className="mt-5">
+              <h3 className="text-xl font-bold tracking-tight text-zinc-900">営業先リスト</h3>
+              <p className="mt-2 text-sm leading-relaxed text-zinc-600">
+                リードステータス付き。架電の記録開始へ内容をそのまま渡せます。
+              </p>
+            </div>
+            <p className="mt-4 text-xs font-semibold uppercase tracking-wider text-rose-600">Open →</p>
+          </Link>
+
+          <Link
+            href="/calls"
+            className="group relative flex flex-col justify-between overflow-hidden rounded-3xl border border-zinc-200/90 bg-white p-8 shadow-sm transition lg:col-span-3 lg:min-h-[220px] lg:p-7 hover:border-zinc-300 hover:shadow-xl"
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-sky-50 text-sky-700 ring-1 ring-sky-100 transition group-hover:scale-[1.03]">
+                <IconPhone className="h-6 w-6" />
+              </div>
+              <span className="flex h-9 w-9 items-center justify-center rounded-full border border-zinc-200 text-zinc-400 transition group-hover:border-zinc-300 group-hover:text-zinc-700">
+                <ArrowRight className="h-4 w-4 -translate-x-0.5 transition group-hover:translate-x-0" />
+              </span>
+            </div>
+            <div className="mt-5">
+              <h3 className="text-xl font-bold tracking-tight text-zinc-900">架電ダッシュボード</h3>
+              <p className="mt-2 text-sm leading-relaxed text-zinc-600">
+                架電数・アポ率・応答率、担当者別の内訳と電話先一覧。
+              </p>
+            </div>
+            <p className="mt-4 text-xs font-semibold uppercase tracking-wider text-sky-600">Open metrics →</p>
           </Link>
 
           <Link
             href="/contracts"
-            className="group flex flex-col justify-between rounded-3xl border border-zinc-200/90 bg-white p-8 shadow-sm transition lg:col-span-6 lg:min-h-[240px] lg:p-9 hover:border-amber-200/80 hover:shadow-lg"
+            className="group flex flex-col justify-between rounded-3xl border border-zinc-200/90 bg-white p-8 shadow-sm transition lg:col-span-3 lg:min-h-[220px] lg:p-7 hover:border-amber-200/80 hover:shadow-lg"
           >
             <div className="flex items-center justify-between gap-3">
               <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-50 text-amber-800 ring-1 ring-amber-100">
@@ -115,9 +169,9 @@ export default async function HomeHubPage() {
               </div>
               <ArrowRight className="h-5 w-5 shrink-0 text-zinc-300 transition group-hover:text-amber-700" />
             </div>
-            <div className="mt-7">
-              <h3 className="text-2xl font-bold text-zinc-900">契約・売上試算</h3>
-              <p className="mt-3 text-sm leading-relaxed text-zinc-600">
+            <div className="mt-5">
+              <h3 className="text-xl font-bold text-zinc-900">契約・売上試算</h3>
+              <p className="mt-2 text-sm leading-relaxed text-zinc-600">
                 目標とのギャップ、プラン別単価、月次の売上・利益推移グラフまで。
               </p>
             </div>

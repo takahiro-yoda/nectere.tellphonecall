@@ -93,6 +93,8 @@ export async function GET(request: NextRequest) {
         isAppointment: true,
         status: true,
         createdAt: true,
+        customerId: true,
+        leadId: true,
       },
     }),
   ]);

@@ -45,6 +45,8 @@ export function LiveCallClient() {
   const assigneeId = searchParams.get("assigneeId") ?? "";
   const date = searchParams.get("date") ?? "";
   const time = searchParams.get("time") ?? "";
+  const prefillCustomerId = searchParams.get("prefillCustomerId")?.trim() ?? "";
+  const prefillLeadId = searchParams.get("prefillLeadId")?.trim() ?? "";
 
   useEffect(() => {
     if (!callTypeId) return;
@@ -153,6 +155,8 @@ export function LiveCallClient() {
           status,
           createdAt,
           scriptFlow: flowOverride ?? buildScriptFlow(),
+          customerId: prefillCustomerId || null,
+          leadId: prefillLeadId || null,
         }),
       });
       if (!res.ok) {

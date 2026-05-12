@@ -26,6 +26,8 @@ export async function GET(request: NextRequest) {
       take: 200,
       select: {
         id: true,
+        customerId: true,
+        leadId: true,
         destination: true,
         destinationContactName: true,
         destinationContactKana: true,
@@ -60,6 +62,8 @@ export async function GET(request: NextRequest) {
     take: 10,
     select: {
       id: true,
+      customerId: true,
+      leadId: true,
       destination: true,
       destinationContactName: true,
       destinationContactKana: true,

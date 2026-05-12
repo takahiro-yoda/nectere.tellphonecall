@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { syncCustomerFromCall } from "@/lib/customerSync";
+import { syncLeadFromCall } from "@/lib/leadSync";
 import { parseCallMemo, serializeCallMemo, type ScriptFlowData } from "@/lib/callFlow";
 import { getRangeForView, parseCustomDateRange, type ViewPeriod } from "@/lib/dateUtils";
 
@@ -37,6 +39,8 @@ export async function GET(request: NextRequest) {
     orderBy: { createdAt: "desc" },
     select: {
       id: true,
+      customerId: true,
+      leadId: true,
       destination: true,
       destinationContactName: true,
       destinationContactKana: true,
@@ -77,15 +81,34 @@ export async function POST(request: NextRequest) {
     isAppointment,
     status,
     scriptFlow,
+    customerId: bodyCustomerId,
+    leadId: bodyLeadId,
   } = body;
 
   if (!destination || typeof destination !== "string" || destination.trim() === "") {
     return NextResponse.json({ error: "destination is required" }, { status: 400 });
   }
 
+  const customerId =
+    typeof bodyCustomerId === "string" && bodyCustomerId.trim() !== "" ? bodyCustomerId.trim() : null;
+  const leadId = typeof bodyLeadId === "string" && bodyLeadId.trim() !== "" ? bodyLeadId.trim() : null;
+  if (customerId && leadId) {
+    return NextResponse.json({ error: "customerId と leadId は同時に指定できません" }, { status: 400 });
+  }
+  if (customerId) {
+    const c = await prisma.customer.findUnique({ where: { id: customerId }, select: { id: true } });
+    if (!c) return NextResponse.json({ error: "顧客が見つかりません" }, { status: 400 });
+  }
+  if (leadId) {
+    const l = await prisma.lead.findUnique({ where: { id: leadId }, select: { id: true } });
+    if (!l) return NextResponse.json({ error: "リードが見つかりません" }, { status: 400 });
+  }
+
   try {
     const created = await prisma.call.create({
       data: {
+        ...(customerId ? { customer: { connect: { id: customerId } } } : {}),
+        ...(leadId ? { lead: { connect: { id: leadId } } } : {}),
         destination: destination.trim(),
         destinationContactName:
           typeof destinationContactName === "string" && destinationContactName.trim() !== ""
@@ -130,6 +153,39 @@ export async function POST(request: NextRequest) {
       include: { assignee: true, callType: true },
     });
     const parsed = parseCallMemo(created.memo);
+    try {
+      if (created.leadId) {
+        await syncLeadFromCall({
+          id: created.id,
+          leadId: created.leadId,
+          destination: created.destination,
+          destinationContactName: created.destinationContactName,
+          destinationContactKana: created.destinationContactKana,
+          destinationPhone: created.destinationPhone,
+          memo: created.memo,
+          status: created.status,
+          createdAt: created.createdAt,
+          callType: created.callType ? { name: created.callType.name } : null,
+          assignee: created.assignee ? { name: created.assignee.name } : null,
+        });
+      } else {
+        await syncCustomerFromCall({
+          id: created.id,
+          customerId: created.customerId,
+          destination: created.destination,
+          destinationContactName: created.destinationContactName,
+          destinationContactKana: created.destinationContactKana,
+          destinationPhone: created.destinationPhone,
+          memo: created.memo,
+          status: created.status,
+          createdAt: created.createdAt,
+          callType: created.callType ? { name: created.callType.name } : null,
+          assignee: created.assignee ? { name: created.assignee.name } : null,
+        });
+      }
+    } catch (syncErr) {
+      console.error("Customer/lead sync failed", syncErr);
+    }
     return NextResponse.json({
       ...created,
       memo: parsed.memoText,
