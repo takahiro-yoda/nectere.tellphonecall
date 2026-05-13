@@ -3,15 +3,11 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import {
   buildCustomerMatchKey,
+  createManualActionLogEntry,
   parseCustomerActionLogs,
-  type CustomerActionLogEntry,
 } from "@/lib/customers";
+import { parseRecordUrls } from "@/lib/extraUrls";
 import { leadStatusLabel } from "@/lib/leadStatus";
-
-type TxResult =
-  | { ok: true; customerId: string }
-  | { ok: false; reason: "NOT_FOUND" }
-  | { ok: false; reason: "CONFLICT"; existingId: string };
 
 export async function POST(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -28,12 +24,14 @@ export async function POST(_request: NextRequest, { params }: { params: Promise<
       }
 
       const prevLogs = parseCustomerActionLogs(lead.actionLogs);
-      const migrateEntry: CustomerActionLogEntry = {
-        date: new Date().toISOString(),
-        action: "営業先リストから顧客へ移行",
-        memo: `リードステータス: ${leadStatusLabel(lead.status)}（元リードID: ${lead.id}）`,
-      };
+      const migrateEntry = createManualActionLogEntry(
+        new Date().toISOString(),
+        "営業先リストから顧客へ移行",
+        `リードステータス: ${leadStatusLabel(lead.status)}（元リードID: ${lead.id}）`,
+      );
       const logs = [...prevLogs, migrateEntry].slice(-200);
+
+      const leadUrls = parseRecordUrls((lead as { urls?: unknown }).urls);
 
       const created = await tx.customer.create({
         data: {
@@ -46,6 +44,7 @@ export async function POST(_request: NextRequest, { params }: { params: Promise<
           addressLine: lead.addressLine,
           email: lead.email,
           memo: lead.memo,
+          urls: leadUrls as Prisma.InputJsonValue,
           actionLogs: logs as Prisma.InputJsonValue,
         },
       });

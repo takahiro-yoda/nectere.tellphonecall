@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { HamburgerMenu } from "./HamburgerMenu";
+import { getLastActionFromLogs } from "@/lib/customers";
 import { JAPAN_PREFECTURES } from "@/lib/japanPrefectures";
 
 export type CustomerRowSerialized = {
@@ -18,6 +19,7 @@ export type CustomerRowSerialized = {
   email: string | null;
   memo: string | null;
   actionLogs: unknown;
+  urls?: unknown;
   createdAt: string;
   updatedAt: string;
 };
@@ -32,6 +34,19 @@ type Props = {
 function formatRowDate(iso: string): { date: string; time: string } {
   try {
     const d = new Date(iso);
+    return {
+      date: d.toLocaleDateString("ja-JP", { month: "short", day: "numeric" }),
+      time: d.toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" }),
+    };
+  } catch {
+    return { date: iso, time: "" };
+  }
+}
+
+function formatActionLogDate(iso: string): { date: string; time: string } {
+  try {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return { date: iso, time: "" };
     return {
       date: d.toLocaleDateString("ja-JP", { month: "short", day: "numeric" }),
       time: d.toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" }),
@@ -61,6 +76,10 @@ export function CustomersHome({
       const pref = (row.prefecture ?? "").toLowerCase();
       const addr = (row.addressLine ?? "").toLowerCase();
       const em = (row.email ?? "").toLowerCase();
+      const last = getLastActionFromLogs(row.actionLogs);
+      const lastLine = last
+        ? `${last.action} ${last.memoPreview}`.toLowerCase()
+        : "";
       return (
         dest.includes(q) ||
         contact.includes(q) ||
@@ -68,7 +87,8 @@ export function CustomersHome({
         memo.includes(q) ||
         pref.includes(q) ||
         addr.includes(q) ||
-        em.includes(q)
+        em.includes(q) ||
+        lastLine.includes(q)
       );
     });
   }, [initialCustomers, listSearch]);
@@ -169,10 +189,13 @@ export function CustomersHome({
             <div className="p-10 text-center text-zinc-500">該当する顧客がありません。</div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[720px] text-left">
+              <table className="w-full min-w-[920px] text-left">
                 <thead>
                   <tr className="border-b border-zinc-200 bg-zinc-50">
                     <th className="px-5 py-3.5 text-xs font-semibold uppercase tracking-wider text-zinc-500">更新</th>
+                    <th className="min-w-[140px] px-5 py-3.5 text-xs font-semibold uppercase tracking-wider text-zinc-500">
+                      最終アクション
+                    </th>
                     <th className="min-w-[180px] px-5 py-3.5 text-xs font-semibold uppercase tracking-wider text-zinc-500">
                       電話先
                     </th>
@@ -187,6 +210,8 @@ export function CustomersHome({
                 <tbody>
                   {filtered.map((row, idx) => {
                     const { date, time } = formatRowDate(row.updatedAt);
+                    const lastAct = getLastActionFromLogs(row.actionLogs);
+                    const lastActFmt = lastAct ? formatActionLogDate(lastAct.date) : null;
                     const detailLine =
                       [row.prefecture, row.destinationContactName, row.destinationPhone, row.email]
                         .filter(Boolean)
@@ -210,6 +235,26 @@ export function CustomersHome({
                         <td className="whitespace-nowrap px-5 py-4 text-sm tabular-nums text-zinc-500">
                           <span className="block font-medium text-zinc-700">{date}</span>
                           {time ? <span className="text-xs">{time}</span> : null}
+                        </td>
+                        <td className="max-w-[200px] px-5 py-4 text-sm text-zinc-600">
+                          {lastAct && lastActFmt ? (
+                            <>
+                              <div className="font-medium text-zinc-800">
+                                {lastActFmt.date}
+                                {lastActFmt.time ? (
+                                  <span className="ml-1 text-xs font-normal text-zinc-500">{lastActFmt.time}</span>
+                                ) : null}
+                              </div>
+                              <div className="mt-0.5 line-clamp-2 text-xs leading-snug text-zinc-600" title={`${lastAct.action} — ${lastAct.memoPreview}`}>
+                                <span className="font-semibold text-zinc-700">{lastAct.action}</span>
+                                {lastAct.memoPreview.trim() ? (
+                                  <span className="text-zinc-500"> · {lastAct.memoPreview}</span>
+                                ) : null}
+                              </div>
+                            </>
+                          ) : (
+                            <span className="text-zinc-300">—</span>
+                          )}
                         </td>
                         <td className="px-5 py-4">
                           <span className="text-base font-semibold text-zinc-900 underline-offset-2 transition hover:text-zinc-700 hover:underline">

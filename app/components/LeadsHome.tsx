@@ -5,7 +5,8 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { LeadStatus } from "@prisma/client";
 import { HamburgerMenu } from "./HamburgerMenu";
-import { LEAD_STATUS_OPTIONS, leadStatusLabel } from "@/lib/leadStatus";
+import { getLastActionFromLogs } from "@/lib/customers";
+import { LEAD_STATUS_OPTIONS, leadStatusChipClasses, leadStatusLabel } from "@/lib/leadStatus";
 import { JAPAN_PREFECTURES } from "@/lib/japanPrefectures";
 
 export type LeadRowSerialized = {
@@ -19,6 +20,7 @@ export type LeadRowSerialized = {
   email: string | null;
   memo: string | null;
   actionLogs: unknown;
+  urls?: unknown;
   status: LeadStatus;
   createdAt: string;
   updatedAt: string;
@@ -34,6 +36,19 @@ type Props = {
 function formatRowDate(iso: string): { date: string; time: string } {
   try {
     const d = new Date(iso);
+    return {
+      date: d.toLocaleDateString("ja-JP", { month: "short", day: "numeric" }),
+      time: d.toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" }),
+    };
+  } catch {
+    return { date: iso, time: "" };
+  }
+}
+
+function formatActionLogDate(iso: string): { date: string; time: string } {
+  try {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return { date: iso, time: "" };
     return {
       date: d.toLocaleDateString("ja-JP", { month: "short", day: "numeric" }),
       time: d.toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" }),
@@ -64,6 +79,10 @@ export function LeadsHome({
       const addr = (row.addressLine ?? "").toLowerCase();
       const em = (row.email ?? "").toLowerCase();
       const st = leadStatusLabel(row.status).toLowerCase();
+      const last = getLastActionFromLogs(row.actionLogs);
+      const lastLine = last
+        ? `${last.action} ${last.memoPreview}`.toLowerCase()
+        : "";
       return (
         dest.includes(q) ||
         contact.includes(q) ||
@@ -72,7 +91,8 @@ export function LeadsHome({
         pref.includes(q) ||
         addr.includes(q) ||
         em.includes(q) ||
-        st.includes(q)
+        st.includes(q) ||
+        lastLine.includes(q)
       );
     });
   }, [initialLeads, listSearch]);
@@ -191,10 +211,13 @@ export function LeadsHome({
             <div className="p-10 text-center text-zinc-500">該当するリードがありません。</div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[800px] text-left">
+              <table className="w-full min-w-[980px] text-left">
                 <thead>
                   <tr className="border-b border-zinc-200 bg-zinc-50">
                     <th className="px-5 py-3.5 text-xs font-semibold uppercase tracking-wider text-zinc-500">更新</th>
+                    <th className="min-w-[140px] px-5 py-3.5 text-xs font-semibold uppercase tracking-wider text-zinc-500">
+                      最終アクション
+                    </th>
                     <th className="min-w-[120px] px-5 py-3.5 text-xs font-semibold uppercase tracking-wider text-zinc-500">
                       ステータス
                     </th>
@@ -212,6 +235,8 @@ export function LeadsHome({
                 <tbody>
                   {filtered.map((row, idx) => {
                     const { date, time } = formatRowDate(row.updatedAt);
+                    const lastAct = getLastActionFromLogs(row.actionLogs);
+                    const lastActFmt = lastAct ? formatActionLogDate(lastAct.date) : null;
                     const detailLine =
                       [row.prefecture, row.destinationContactName, row.destinationPhone, row.email]
                         .filter(Boolean)
@@ -236,10 +261,28 @@ export function LeadsHome({
                           <span className="block font-medium text-zinc-700">{date}</span>
                           {time ? <span className="text-xs">{time}</span> : null}
                         </td>
+                        <td className="max-w-[200px] px-5 py-4 text-sm text-zinc-600">
+                          {lastAct && lastActFmt ? (
+                            <>
+                              <div className="font-medium text-zinc-800">
+                                {lastActFmt.date}
+                                {lastActFmt.time ? (
+                                  <span className="ml-1 text-xs font-normal text-zinc-500">{lastActFmt.time}</span>
+                                ) : null}
+                              </div>
+                              <div className="mt-0.5 line-clamp-2 text-xs leading-snug text-zinc-600" title={`${lastAct.action} — ${lastAct.memoPreview}`}>
+                                <span className="font-semibold text-zinc-700">{lastAct.action}</span>
+                                {lastAct.memoPreview.trim() ? (
+                                  <span className="text-zinc-500"> · {lastAct.memoPreview}</span>
+                                ) : null}
+                              </div>
+                            </>
+                          ) : (
+                            <span className="text-zinc-300">—</span>
+                          )}
+                        </td>
                         <td className="px-5 py-4">
-                          <span className="inline-flex rounded-full bg-rose-100 px-2.5 py-1 text-xs font-semibold text-rose-900">
-                            {leadStatusLabel(row.status)}
-                          </span>
+                          <span className={leadStatusChipClasses(row.status)}>{leadStatusLabel(row.status)}</span>
                         </td>
                         <td className="px-5 py-4">
                           <span className="text-base font-semibold text-zinc-900 underline-offset-2 transition hover:text-zinc-700 hover:underline">

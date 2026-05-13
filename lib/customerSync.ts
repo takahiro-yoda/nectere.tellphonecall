@@ -1,9 +1,10 @@
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { parseCallMemo } from "@/lib/callFlow";
+import { formatScriptFlowSummary, parseCallMemo, type ScriptFlowData } from "@/lib/callFlow";
 import {
   buildCustomerMatchKey,
   digitsOnlyPhone,
+  mergeActionLogEntryForCall,
   parseCustomerActionLogs,
   callStatusToCustomerActionLabel,
   type CustomerActionLogEntry,
@@ -30,11 +31,13 @@ function preferNonEmpty(next: string | null | undefined, prev: string | null | u
   return prev?.trim() || null;
 }
 
-function buildActionMemo(call: CallForSync, memoText: string): string {
+function buildActionMemo(call: CallForSync, memoText: string, scriptFlow: ScriptFlowData | null): string {
   const parts: string[] = [];
+  if (memoText) parts.push(memoText);
+  const flowLine = formatScriptFlowSummary(scriptFlow);
+  if (flowLine) parts.push(flowLine);
   if (call.callType?.name) parts.push(`タイプ: ${call.callType.name}`);
   if (call.assignee?.name) parts.push(`担当: ${call.assignee.name}`);
-  if (memoText) parts.push(memoText);
   if (parts.length === 0) parts.push(`架電ID: ${call.id}`);
   return parts.join(" · ");
 }
@@ -45,7 +48,7 @@ export async function syncCustomerFromCall(call: CallForSync): Promise<void> {
   const entry: CustomerActionLogEntry = {
     date: call.createdAt.toISOString(),
     action: callStatusToCustomerActionLabel(call.status),
-    memo: buildActionMemo(call, memoText),
+    memo: buildActionMemo(call, memoText, parsed.scriptFlow),
   };
 
   const phoneDigits = digitsOnlyPhone(call.destinationPhone);
@@ -54,7 +57,7 @@ export async function syncCustomerFromCall(call: CallForSync): Promise<void> {
     const existing = await prisma.customer.findUnique({ where: { id: call.customerId } });
     if (!existing) return;
     const prevLogs = parseCustomerActionLogs(existing.actionLogs);
-    const logs = [...prevLogs, entry].slice(-200);
+    const logs = mergeActionLogEntryForCall(prevLogs, entry, call.id);
     await prisma.customer.update({
       where: { id: call.customerId },
       data: {
@@ -71,7 +74,7 @@ export async function syncCustomerFromCall(call: CallForSync): Promise<void> {
   const matchKey = buildCustomerMatchKey(call.destination, call.destinationPhone);
   const existing = await prisma.customer.findUnique({ where: { matchKey } });
   const prevLogs = parseCustomerActionLogs(existing?.actionLogs);
-  const logs = [...prevLogs, entry].slice(-200);
+  const logs = mergeActionLogEntryForCall(prevLogs, entry, call.id);
 
   const customer = await prisma.customer.upsert({
     where: { matchKey },

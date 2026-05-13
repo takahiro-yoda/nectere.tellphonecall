@@ -1,8 +1,9 @@
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { parseCallMemo } from "@/lib/callFlow";
+import { formatScriptFlowSummary, parseCallMemo, type ScriptFlowData } from "@/lib/callFlow";
 import {
   digitsOnlyPhone,
+  mergeActionLogEntryForCall,
   parseCustomerActionLogs,
   callStatusToCustomerActionLabel,
   type CustomerActionLogEntry,
@@ -28,11 +29,13 @@ function preferNonEmpty(next: string | null | undefined, prev: string | null | u
   return prev?.trim() || null;
 }
 
-function buildActionMemo(call: CallForLeadSync, memoText: string): string {
+function buildActionMemo(call: CallForLeadSync, memoText: string, scriptFlow: ScriptFlowData | null): string {
   const parts: string[] = [];
+  if (memoText) parts.push(memoText);
+  const flowLine = formatScriptFlowSummary(scriptFlow);
+  if (flowLine) parts.push(flowLine);
   if (call.callType?.name) parts.push(`タイプ: ${call.callType.name}`);
   if (call.assignee?.name) parts.push(`担当: ${call.assignee.name}`);
-  if (memoText) parts.push(memoText);
   if (parts.length === 0) parts.push(`架電ID: ${call.id}`);
   return parts.join(" · ");
 }
@@ -43,7 +46,7 @@ export async function syncLeadFromCall(call: CallForLeadSync): Promise<void> {
   const entry: CustomerActionLogEntry = {
     date: call.createdAt.toISOString(),
     action: callStatusToCustomerActionLabel(call.status),
-    memo: buildActionMemo(call, memoText),
+    memo: buildActionMemo(call, memoText, parsed.scriptFlow),
   };
 
   const phoneDigits = digitsOnlyPhone(call.destinationPhone);
@@ -52,7 +55,7 @@ export async function syncLeadFromCall(call: CallForLeadSync): Promise<void> {
   if (!existing) return;
 
   const prevLogs = parseCustomerActionLogs(existing.actionLogs);
-  const logs = [...prevLogs, entry].slice(-200);
+  const logs = mergeActionLogEntryForCall(prevLogs, entry, call.id);
 
   await prisma.lead.update({
     where: { id: call.leadId },

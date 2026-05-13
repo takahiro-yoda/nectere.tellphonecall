@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { syncCustomerFromCall } from "@/lib/customerSync";
+import { syncLeadFromCall } from "@/lib/leadSync";
 import { parseCallMemo, serializeCallMemo, type ScriptFlowData } from "@/lib/callFlow";
 
 export async function GET(
@@ -133,6 +135,39 @@ export async function PATCH(
     include: { assignee: true, callType: true },
   });
   const parsed = parseCallMemo(updated.memo);
+  try {
+    if (updated.leadId) {
+      await syncLeadFromCall({
+        id: updated.id,
+        leadId: updated.leadId,
+        destination: updated.destination,
+        destinationContactName: updated.destinationContactName,
+        destinationContactKana: updated.destinationContactKana,
+        destinationPhone: updated.destinationPhone,
+        memo: updated.memo,
+        status: updated.status,
+        createdAt: updated.createdAt,
+        callType: updated.callType ? { name: updated.callType.name } : null,
+        assignee: updated.assignee ? { name: updated.assignee.name } : null,
+      });
+    } else {
+      await syncCustomerFromCall({
+        id: updated.id,
+        customerId: updated.customerId,
+        destination: updated.destination,
+        destinationContactName: updated.destinationContactName,
+        destinationContactKana: updated.destinationContactKana,
+        destinationPhone: updated.destinationPhone,
+        memo: updated.memo,
+        status: updated.status,
+        createdAt: updated.createdAt,
+        callType: updated.callType ? { name: updated.callType.name } : null,
+        assignee: updated.assignee ? { name: updated.assignee.name } : null,
+      });
+    }
+  } catch (syncErr) {
+    console.error("Customer/lead sync after call PATCH failed", syncErr);
+  }
   return NextResponse.json({
     ...updated,
     memo: parsed.memoText,

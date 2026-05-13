@@ -1,15 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { LeadStatus } from "@prisma/client";
 import { HamburgerMenu } from "./HamburgerMenu";
 import { CustomerDestinationCombobox } from "./CustomerDestinationCombobox";
 import { PrefectureInput } from "./PrefectureInput";
 import { ActionLogAppendPanel } from "./ActionLogAppendPanel";
-import { parseCustomerActionLogs } from "@/lib/customers";
-import { LEAD_STATUS_OPTIONS, leadStatusLabel } from "@/lib/leadStatus";
+import { ActionLogHistorySection } from "./ActionLogHistorySection";
+import { RecordUrlsEditor } from "./RecordUrlsEditor";
+import { parseRecordUrls } from "@/lib/extraUrls";
+import { LEAD_STATUS_OPTIONS, leadStatusChipClasses, leadStatusLabel } from "@/lib/leadStatus";
 import { buildCallsPrefillHref } from "@/lib/callPrefill";
 import type { LeadRowSerialized } from "./LeadsHome";
 
@@ -47,8 +49,6 @@ export function LeadDetailClient({ initialLead }: Props) {
   const router = useRouter();
   const lead = initialLead;
 
-  const logs = useMemo(() => parseCustomerActionLogs(lead.actionLogs), [lead.actionLogs]);
-
   const [dest, setDest] = useState(lead.destination);
   const [contactName, setContactName] = useState(lead.destinationContactName ?? "");
   const [contactKana, setContactKana] = useState(lead.destinationContactKana ?? "");
@@ -57,6 +57,7 @@ export function LeadDetailClient({ initialLead }: Props) {
   const [addressLine, setAddressLine] = useState(lead.addressLine ?? "");
   const [email, setEmail] = useState(lead.email ?? "");
   const [memo, setMemo] = useState(lead.memo ?? "");
+  const [urlList, setUrlList] = useState(() => parseRecordUrls((lead as { urls?: unknown }).urls));
   const [status, setStatus] = useState<LeadStatus>(lead.status);
   const [saving, setSaving] = useState(false);
   const [migrateSaving, setMigrateSaving] = useState(false);
@@ -72,6 +73,7 @@ export function LeadDetailClient({ initialLead }: Props) {
     setAddressLine(lead.addressLine ?? "");
     setEmail(lead.email ?? "");
     setMemo(lead.memo ?? "");
+    setUrlList(parseRecordUrls((lead as { urls?: unknown }).urls));
     setStatus(lead.status);
     setSaveError(null);
     setConflictCustomerId(null);
@@ -94,8 +96,6 @@ export function LeadDetailClient({ initialLead }: Props) {
       })
     : null;
 
-  const reversedLogs = useMemo(() => [...logs].reverse(), [logs]);
-
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
@@ -114,6 +114,7 @@ export function LeadDetailClient({ initialLead }: Props) {
           email: email.trim() || null,
           memo: memo.trim() || null,
           status,
+          urls: urlList,
         }),
       });
       if (!res.ok) {
@@ -200,9 +201,7 @@ export function LeadDetailClient({ initialLead }: Props) {
               <div>
                 <div className="text-xs font-medium tracking-wide text-zinc-500">ステータス</div>
                 <div className="mt-1">
-                  <span className="inline-flex rounded-full bg-rose-100 px-2.5 py-1 text-xs font-semibold text-rose-900">
-                    {leadStatusLabel(status)}
-                  </span>
+                  <span className={leadStatusChipClasses(status)}>{leadStatusLabel(status)}</span>
                 </div>
               </div>
               <div>
@@ -239,33 +238,29 @@ export function LeadDetailClient({ initialLead }: Props) {
                   {memo.trim() ? memo : "未設定"}
                 </div>
               </div>
+              {urlList.length > 0 ? (
+                <div className="sm:col-span-2">
+                  <div className="text-xs font-medium tracking-wide text-zinc-500">リンク</div>
+                  <ul className="mt-2 space-y-1.5">
+                    {urlList.map((u) => (
+                      <li key={u}>
+                        <a
+                          href={u}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="break-all text-sm font-medium text-sky-700 underline-offset-2 hover:underline"
+                        >
+                          {u}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
             </div>
           </div>
 
-          <div className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
-            <h2 className="text-sm font-semibold text-zinc-800">アクションログ</h2>
-            {reversedLogs.length === 0 ? (
-              <p className="mt-2 text-sm text-zinc-500">まだ記録がありません。</p>
-            ) : (
-              <ol className="mt-3 space-y-3">
-                {reversedLogs.map((log, idx) => (
-                  <li
-                    key={`${log.date}-${idx}`}
-                    className="flex items-start gap-3 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2.5"
-                  >
-                    <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-zinc-900 px-1 text-xs font-bold text-white">
-                      {idx + 1}
-                    </span>
-                    <div className="min-w-0">
-                      <div className="text-sm font-semibold text-zinc-900">{log.action}</div>
-                      <div className="mt-0.5 text-xs text-zinc-500">{formatDt(log.date)}</div>
-                      <p className="mt-1 whitespace-pre-wrap text-sm text-zinc-700">{log.memo}</p>
-                    </div>
-                  </li>
-                ))}
-              </ol>
-            )}
-          </div>
+          <ActionLogHistorySection actionLogsRaw={lead.actionLogs} patchUrl={`/api/leads/${lead.id}`} />
 
           <ActionLogAppendPanel patchUrl={`/api/leads/${lead.id}`} accent="rose" />
         </section>
@@ -308,6 +303,8 @@ export function LeadDetailClient({ initialLead }: Props) {
                     </option>
                   ))}
                 </select>
+                <p className="mt-2 text-xs text-zinc-500">保存後のタグ色プレビュー</p>
+                <span className={`mt-1 ${leadStatusChipClasses(status)}`}>{leadStatusLabel(status)}</span>
               </div>
 
               <CustomerDestinationCombobox
@@ -402,6 +399,12 @@ export function LeadDetailClient({ initialLead }: Props) {
                   rows={5}
                   className={inputForm}
                 />
+              </div>
+              <div>
+                <span className={labelForm}>リンク（任意）</span>
+                <div className="mt-2">
+                  <RecordUrlsEditor urls={urlList} onChange={setUrlList} accent="rose" />
+                </div>
               </div>
 
               {saveError ? (

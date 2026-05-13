@@ -7,7 +7,7 @@ import type { LeadStatus } from "@prisma/client";
 import { HamburgerMenu } from "./HamburgerMenu";
 import { CustomerDestinationCombobox } from "./CustomerDestinationCombobox";
 import { PrefectureInput } from "./PrefectureInput";
-import { LEAD_STATUS_OPTIONS } from "@/lib/leadStatus";
+import { LEAD_STATUS_OPTIONS, leadStatusChipClasses, leadStatusLabel } from "@/lib/leadStatus";
 
 function sanitizePhoneInput(value: string): string {
   return value.replace(/\D/g, "");
@@ -103,6 +103,8 @@ export function NewLeadPageClient() {
                 </option>
               ))}
             </select>
+            <p className="mt-2 text-xs text-zinc-500">プレビュー</p>
+            <span className={`mt-1 ${leadStatusChipClasses(status)}`}>{leadStatusLabel(status)}</span>
           </div>
           <CustomerDestinationCombobox
             id="new-page-lead-dest"

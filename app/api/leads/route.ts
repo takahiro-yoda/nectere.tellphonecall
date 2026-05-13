@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { digitsOnlyPhone } from "@/lib/customers";
+import { parseUrlsFromRequestBody } from "@/lib/extraUrls";
 import { normalizeEmailInput, normalizePrefectureInput } from "@/lib/japanPrefectures";
 import { parseLeadStatus } from "@/lib/leadStatus";
 
@@ -47,6 +48,7 @@ export async function POST(request: NextRequest) {
     addressLine,
     email,
     status: statusRaw,
+    urls: urlsRaw,
   } = body as Record<string, unknown>;
 
   if (typeof destination !== "string" || destination.trim() === "") {
@@ -79,6 +81,7 @@ export async function POST(request: NextRequest) {
         email: typeof email === "string" ? normalizeEmailInput(email) : null,
         status,
         actionLogs: [] as Prisma.InputJsonValue,
+        urls: (parseUrlsFromRequestBody(urlsRaw) ?? []) as Prisma.InputJsonValue,
       },
     });
     return NextResponse.json(created);

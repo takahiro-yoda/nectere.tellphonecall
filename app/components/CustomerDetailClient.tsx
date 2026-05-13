@@ -1,13 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { HamburgerMenu } from "./HamburgerMenu";
 import { CustomerDestinationCombobox } from "./CustomerDestinationCombobox";
 import { PrefectureInput } from "./PrefectureInput";
 import { ActionLogAppendPanel } from "./ActionLogAppendPanel";
-import { parseCustomerActionLogs } from "@/lib/customers";
+import { ActionLogHistorySection } from "./ActionLogHistorySection";
+import { RecordUrlsEditor } from "./RecordUrlsEditor";
+import { parseRecordUrls } from "@/lib/extraUrls";
 import { buildCallsPrefillHref } from "@/lib/callPrefill";
 import type { CustomerRowSerialized } from "./CustomersHome";
 
@@ -45,8 +47,6 @@ export function CustomerDetailClient({ initialCustomer }: Props) {
   const router = useRouter();
   const customer = initialCustomer;
 
-  const logs = useMemo(() => parseCustomerActionLogs(customer.actionLogs), [customer.actionLogs]);
-
   const [dest, setDest] = useState(customer.destination);
   const [contactName, setContactName] = useState(customer.destinationContactName ?? "");
   const [contactKana, setContactKana] = useState(customer.destinationContactKana ?? "");
@@ -55,6 +55,7 @@ export function CustomerDetailClient({ initialCustomer }: Props) {
   const [addressLine, setAddressLine] = useState(customer.addressLine ?? "");
   const [email, setEmail] = useState(customer.email ?? "");
   const [memo, setMemo] = useState(customer.memo ?? "");
+  const [urlList, setUrlList] = useState(() => parseRecordUrls((customer as { urls?: unknown }).urls));
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
@@ -67,6 +68,7 @@ export function CustomerDetailClient({ initialCustomer }: Props) {
     setAddressLine(customer.addressLine ?? "");
     setEmail(customer.email ?? "");
     setMemo(customer.memo ?? "");
+    setUrlList(parseRecordUrls((customer as { urls?: unknown }).urls));
     setSaveError(null);
   }, [customer.id, customer.updatedAt]);
 
@@ -103,6 +105,7 @@ export function CustomerDetailClient({ initialCustomer }: Props) {
           addressLine: addressLine.trim() || null,
           email: email.trim() || null,
           memo: memo.trim() || null,
+          urls: urlList,
         }),
       });
       if (!res.ok) {
@@ -115,8 +118,6 @@ export function CustomerDetailClient({ initialCustomer }: Props) {
       setSaving(false);
     }
   }
-
-  const reversedLogs = useMemo(() => [...logs].reverse(), [logs]);
 
   return (
     <div className="min-h-screen bg-zinc-50">
@@ -185,33 +186,29 @@ export function CustomerDetailClient({ initialCustomer }: Props) {
                   {memo.trim() ? memo : "未設定"}
                 </div>
               </div>
+              {urlList.length > 0 ? (
+                <div className="sm:col-span-2">
+                  <div className="text-xs font-medium tracking-wide text-zinc-500">リンク</div>
+                  <ul className="mt-2 space-y-1.5">
+                    {urlList.map((u) => (
+                      <li key={u}>
+                        <a
+                          href={u}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="break-all text-sm font-medium text-sky-700 underline-offset-2 hover:underline"
+                        >
+                          {u}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
             </div>
           </div>
 
-          <div className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
-            <h2 className="text-sm font-semibold text-zinc-800">アクションログ</h2>
-            {reversedLogs.length === 0 ? (
-              <p className="mt-2 text-sm text-zinc-500">まだ記録がありません。</p>
-            ) : (
-              <ol className="mt-3 space-y-3">
-                {reversedLogs.map((log, idx) => (
-                  <li
-                    key={`${log.date}-${idx}`}
-                    className="flex items-start gap-3 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2.5"
-                  >
-                    <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-zinc-900 px-1 text-xs font-bold text-white">
-                      {idx + 1}
-                    </span>
-                    <div className="min-w-0">
-                      <div className="text-sm font-semibold text-zinc-900">{log.action}</div>
-                      <div className="mt-0.5 text-xs text-zinc-500">{formatDt(log.date)}</div>
-                      <p className="mt-1 whitespace-pre-wrap text-sm text-zinc-700">{log.memo}</p>
-                    </div>
-                  </li>
-                ))}
-              </ol>
-            )}
-          </div>
+          <ActionLogHistorySection actionLogsRaw={customer.actionLogs} patchUrl={`/api/customers/${customer.id}`} />
 
           <ActionLogAppendPanel patchUrl={`/api/customers/${customer.id}`} accent="violet" />
         </section>
@@ -320,6 +317,12 @@ export function CustomerDetailClient({ initialCustomer }: Props) {
                   rows={5}
                   className={inputForm}
                 />
+              </div>
+              <div>
+                <span className={labelForm}>リンク（任意）</span>
+                <div className="mt-2">
+                  <RecordUrlsEditor urls={urlList} onChange={setUrlList} accent="violet" />
+                </div>
               </div>
 
               {saveError ? (

@@ -66,6 +66,17 @@ export function parseCallMemo(rawMemo: string | null | undefined): {
   }
 }
 
+/** 架電アクションログ用に、スクリプト分岐を短い一行にまとめる */
+export function formatScriptFlowSummary(flow: ScriptFlowData | null | undefined): string {
+  if (!flow || !Array.isArray(flow.steps) || flow.steps.length === 0) return "";
+  const parts = flow.steps.map((s) => {
+    const label = typeof s.choiceLabel === "string" ? s.choiceLabel.trim() : "";
+    const key = typeof s.choiceKey === "string" ? s.choiceKey.trim() : "";
+    return label || key || "?";
+  });
+  return `分岐: ${parts.join(" → ")}`;
+}
+
 export function serializeCallMemo(input: {
   memoText?: string | null;
   scriptFlow?: ScriptFlowData | null;
