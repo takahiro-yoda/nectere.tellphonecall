@@ -13,6 +13,7 @@ import {
 } from "@/lib/customerLeadListSort";
 import { LEAD_STATUS_OPTIONS, leadStatusChipClasses, leadStatusLabel } from "@/lib/leadStatus";
 import { JAPAN_PREFECTURES } from "@/lib/japanPrefectures";
+import { LeadsQuickAddPanel } from "./LeadsQuickAddPanel";
 
 export type LeadRowSerialized = {
   id: string;
@@ -134,6 +135,7 @@ export function LeadsHome({
       </header>
 
       <main className="mx-auto max-w-6xl px-4 py-8">
+        <LeadsQuickAddPanel />
         <div className="mb-4 grid gap-3 rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
           <form className="flex flex-wrap items-end gap-2" action="/leads" method="get">
             <div className="min-w-[140px] flex-1">
