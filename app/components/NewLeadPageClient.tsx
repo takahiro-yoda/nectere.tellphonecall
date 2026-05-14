@@ -76,9 +76,17 @@ export function NewLeadPageClient() {
               <p className="text-xs text-zinc-500">登録後、一覧で詳細を編集できます</p>
             </div>
           </div>
-          <Link href="/leads" className="text-xs font-semibold text-rose-800 underline-offset-2 hover:underline">
-            一覧へ戻る
-          </Link>
+          <div className="flex flex-wrap items-end justify-end gap-x-3 gap-y-1">
+            <Link
+              href="/leads/quick-add"
+              className="text-xs font-semibold text-rose-700 underline-offset-2 hover:underline"
+            >
+              電話先＋県だけ連続追加
+            </Link>
+            <Link href="/leads" className="text-xs font-semibold text-rose-800 underline-offset-2 hover:underline">
+              一覧へ戻る
+            </Link>
+          </div>
         </div>
       </header>
 

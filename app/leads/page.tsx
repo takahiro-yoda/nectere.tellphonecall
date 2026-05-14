@@ -14,7 +14,7 @@ export const metadata = {
 export default async function LeadsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; status?: string; selected?: string; prefecture?: string }>;
+  searchParams: Promise<{ q?: string; status?: string; selected?: string; prefecture?: string; tag?: string }>;
 }) {
   const sp = await searchParams;
   const legacySelected = sp.selected?.trim();
@@ -24,6 +24,7 @@ export default async function LeadsPage({
   const q = (sp.q ?? "").trim();
   const statusFilter = parseLeadStatus(sp.status?.trim());
   const prefecture = (sp.prefecture ?? "").trim();
+  const tagId = (sp.tag ?? "").trim();
 
   const qDigits = q.replace(/\D/g, "");
   const orClause: Prisma.LeadWhereInput[] = [
@@ -40,13 +41,23 @@ export default async function LeadsPage({
   if (q) and.push({ OR: orClause });
   if (statusFilter) and.push({ status: statusFilter });
   if (prefecture) and.push({ prefecture });
+  if (tagId) and.push({ tags: { some: { id: tagId } } });
   const where: Prisma.LeadWhereInput = and.length > 0 ? { AND: and } : {};
 
-  const rows = await prisma.lead.findMany({
-    where,
-    orderBy: { updatedAt: "desc" },
-    take: 400,
-  });
+  const [rows, allTags] = await Promise.all([
+    prisma.lead.findMany({
+      where,
+      orderBy: { updatedAt: "desc" },
+      take: 400,
+      include: {
+        tags: { orderBy: { name: "asc" }, select: { id: true, name: true, color: true } },
+      },
+    }),
+    prisma.leadTag.findMany({
+      orderBy: { name: "asc" },
+      select: { id: true, name: true, color: true },
+    }),
+  ]);
 
   return (
     <LeadsHome
@@ -54,6 +65,8 @@ export default async function LeadsPage({
       initialQ={q}
       initialStatus={statusFilter ?? ""}
       initialPrefecture={prefecture}
+      initialTagFilter={tagId}
+      initialAllTags={JSON.parse(JSON.stringify(allTags))}
     />
   );
 }

@@ -233,6 +233,24 @@ export function LeadDetailClient({ initialLead }: Props) {
                 <div className="mt-1 text-sm font-semibold text-zinc-900">{displayField(email)}</div>
               </div>
               <div className="sm:col-span-2">
+                <div className="text-xs font-medium tracking-wide text-zinc-500">タグ</div>
+                <div className="mt-1 flex flex-wrap gap-1.5">
+                  {(lead.tags ?? []).length === 0 ? (
+                    <span className="text-sm text-zinc-400">なし</span>
+                  ) : (
+                    (lead.tags ?? []).map((t) => (
+                      <span
+                        key={t.id}
+                        className="inline-flex rounded-full border border-rose-200 bg-rose-50 px-2.5 py-0.5 text-xs font-medium text-rose-900"
+                      >
+                        {t.name}
+                      </span>
+                    ))
+                  )}
+                </div>
+                <p className="mt-1 text-[11px] text-zinc-500">一覧で行を選び、タグの一括付与ができます。</p>
+              </div>
+              <div className="sm:col-span-2">
                 <div className="text-xs font-medium tracking-wide text-zinc-500">メモ</div>
                 <div className="mt-1 line-clamp-4 text-sm font-semibold text-zinc-900 whitespace-pre-wrap">
                   {memo.trim() ? memo : "未設定"}

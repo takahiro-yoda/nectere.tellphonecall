@@ -7,7 +7,14 @@ import { PrefectureInput } from "./PrefectureInput";
 
 const DEST_INPUT_ID = "leads-quick-add-destination";
 
-export function LeadsQuickAddPanel() {
+type Props = {
+  /** 一覧埋め込み用の見出し・説明を非表示（専用ページでヘッダー側に書くとき） */
+  hideIntro?: boolean;
+  /** 外側 section に追加するクラス（任意） */
+  sectionClassName?: string;
+};
+
+export function LeadsQuickAddPanel({ hideIntro = false, sectionClassName = "" }: Props) {
   const router = useRouter();
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [dest, setDest] = useState("");
@@ -65,12 +72,16 @@ export function LeadsQuickAddPanel() {
   return (
     <section
       aria-label="リードを連続で追加"
-      className="mb-4 rounded-2xl border border-rose-200 bg-white p-4 shadow-sm ring-1 ring-rose-50"
+      className={`${hideIntro ? "p-6 " : "mb-4 p-4 "}rounded-2xl border border-rose-200 bg-white shadow-sm ring-1 ring-rose-50 ${sectionClassName}`.trim()}
     >
-      <div className="mb-3">
-        <h2 className="text-sm font-semibold text-zinc-900">連続で新規追加</h2>
-        <p className="text-xs text-zinc-500">電話先と都道府県を入れて追加。送信後は電話先だけクリアされます（同じ県の連続入力向け）。</p>
-      </div>
+      {!hideIntro ? (
+        <div className="mb-3">
+          <h2 className="text-sm font-semibold text-zinc-900">連続で新規追加</h2>
+          <p className="text-xs text-zinc-500">
+            電話先と都道府県を入れて追加。送信後は電話先だけクリアされます（同じ県の連続入力向け）。
+          </p>
+        </div>
+      ) : null}
       <form onSubmit={handleSubmit} className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(140px,180px)_auto] sm:items-end">
         <CustomerDestinationCombobox
           id={DEST_INPUT_ID}

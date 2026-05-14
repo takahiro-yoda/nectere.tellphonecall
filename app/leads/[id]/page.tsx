@@ -18,7 +18,10 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 
 export default async function LeadDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const row = await prisma.lead.findUnique({ where: { id } });
+  const row = await prisma.lead.findUnique({
+    where: { id },
+    include: { tags: { orderBy: { name: "asc" }, select: { id: true, name: true, color: true } } },
+  });
   if (!row) notFound();
   return <LeadDetailClient initialLead={JSON.parse(JSON.stringify(row))} />;
 }

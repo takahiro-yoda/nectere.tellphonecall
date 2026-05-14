@@ -58,6 +58,17 @@ enum LeadStatus {
   UNQUALIFIED
 }
 
+/// リード用タグ（一覧の一括付与・絞り込み）
+model LeadTag {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  color     String?
+  createdAt DateTime @default(now())
+  leads     Lead[]
+
+  @@index([name])
+}
+
 model Lead {
   id                     String     @id @default(cuid())
   destination            String
@@ -76,6 +87,7 @@ model Lead {
   updatedAt                DateTime   @updatedAt
 
   calls Call[]
+  tags  LeadTag[]
 
   @@index([destination])
   @@index([status])
