@@ -6,6 +6,11 @@ import { useRouter } from "next/navigation";
 import type { LeadStatus } from "@prisma/client";
 import { HamburgerMenu } from "./HamburgerMenu";
 import { getLastActionFromLogs } from "@/lib/customers";
+import {
+  LIST_SORT_PRESET_OPTIONS,
+  type ListSortPreset,
+  sortRowsByPreset,
+} from "@/lib/customerLeadListSort";
 import { LEAD_STATUS_OPTIONS, leadStatusChipClasses, leadStatusLabel } from "@/lib/leadStatus";
 import { JAPAN_PREFECTURES } from "@/lib/japanPrefectures";
 
@@ -66,6 +71,7 @@ export function LeadsHome({
 }: Props) {
   const router = useRouter();
   const [listSearch, setListSearch] = useState("");
+  const [sortPreset, setSortPreset] = useState<ListSortPreset>("updated_desc");
 
   const filtered = useMemo(() => {
     if (!listSearch.trim()) return initialLeads;
@@ -96,6 +102,11 @@ export function LeadsHome({
       );
     });
   }, [initialLeads, listSearch]);
+
+  const sortedRows = useMemo(
+    () => sortRowsByPreset(filtered, sortPreset),
+    [filtered, sortPreset],
+  );
 
   return (
     <div className="min-h-screen bg-zinc-50">
@@ -181,18 +192,37 @@ export function LeadsHome({
               絞り込み
             </button>
           </form>
-          <div>
-            <label htmlFor="lead-list-filter" className="block text-sm font-medium text-zinc-700">
-              一覧内の絞り込み
-            </label>
-            <input
-              id="lead-list-filter"
-              type="search"
-              value={listSearch}
-              onChange={(e) => setListSearch(e.target.value)}
-              placeholder="表示中の一覧だけをさらに絞り込み…"
-              className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400"
-            />
+          <div className="grid gap-3 sm:grid-cols-2 sm:items-end">
+            <div>
+              <label htmlFor="lead-list-filter" className="block text-sm font-medium text-zinc-700">
+                一覧内の絞り込み
+              </label>
+              <input
+                id="lead-list-filter"
+                type="search"
+                value={listSearch}
+                onChange={(e) => setListSearch(e.target.value)}
+                placeholder="表示中の一覧だけをさらに絞り込み…"
+                className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400"
+              />
+            </div>
+            <div>
+              <label htmlFor="lead-sort" className="block text-sm font-medium text-zinc-700">
+                表示順
+              </label>
+              <select
+                id="lead-sort"
+                value={sortPreset}
+                onChange={(e) => setSortPreset(e.target.value as ListSortPreset)}
+                className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-2 py-2 text-sm text-zinc-900"
+              >
+                {LIST_SORT_PRESET_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
         </div>
 
@@ -207,7 +237,7 @@ export function LeadsHome({
                 新規で追加
               </Link>
             </div>
-          ) : filtered.length === 0 ? (
+          ) : sortedRows.length === 0 ? (
             <div className="p-10 text-center text-zinc-500">該当するリードがありません。</div>
           ) : (
             <div className="overflow-x-auto">
@@ -233,7 +263,7 @@ export function LeadsHome({
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.map((row, idx) => {
+                  {sortedRows.map((row, idx) => {
                     const { date, time } = formatRowDate(row.updatedAt);
                     const lastAct = getLastActionFromLogs(row.actionLogs);
                     const lastActFmt = lastAct ? formatActionLogDate(lastAct.date) : null;
