@@ -43,9 +43,10 @@ const inputForm = "mt-1 w-full rounded-md border border-zinc-300 bg-white px-3 p
 
 type Props = {
   initialLead: LeadRowSerialized;
+  listReturnHref: string;
 };
 
-export function LeadDetailClient({ initialLead }: Props) {
+export function LeadDetailClient({ initialLead, listReturnHref }: Props) {
   const router = useRouter();
   const lead = initialLead;
 
@@ -182,7 +183,7 @@ export function LeadDetailClient({ initialLead }: Props) {
           </div>
           <div className="flex flex-wrap items-center justify-end gap-2">
             <Link
-              href="/leads"
+              href={listReturnHref}
               className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
             >
               一覧へ戻る

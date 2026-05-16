@@ -3,6 +3,9 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { CustomerDestinationCombobox } from "./CustomerDestinationCombobox";
+import { CallProfileLink } from "./CallProfileLink";
+import type { CallProfileLink as CallProfileLinkData } from "@/lib/callProfileLink";
+import { profileLinkFromCallIds } from "@/lib/callProfileLink";
 
 type Assignee = {
   id: string;
@@ -19,6 +22,8 @@ type CallType = {
 
 type Call = {
   id: string;
+  customerId?: string | null;
+  leadId?: string | null;
   destination: string;
   destinationContactName?: string | null;
   destinationContactKana?: string | null;
@@ -53,6 +58,7 @@ export function EditCallModal({ call, onClose }: Props) {
   const [isAppointment, setIsAppointment] = useState(false);
   const [saving, setSaving] = useState(false);
   const [resultStatus, setResultStatus] = useState<"APPOINTMENT" | "NO_ANSWER" | "OTHER" | "SKIPPED">("OTHER");
+  const [profile, setProfile] = useState<CallProfileLinkData | null>(null);
 
   useEffect(() => {
     if (!call) return;
@@ -83,6 +89,30 @@ export function EditCallModal({ call, onClose }: Props) {
           : "OTHER"
     );
   }, [call]);
+
+  useEffect(() => {
+    if (!call) {
+      setProfile(null);
+      return;
+    }
+    const direct = profileLinkFromCallIds(call);
+    if (direct) {
+      setProfile(direct);
+      return;
+    }
+    let cancelled = false;
+    fetch(`/api/calls/${call.id}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { profile?: CallProfileLinkData | null } | null) => {
+        if (!cancelled) setProfile(data?.profile ?? null);
+      })
+      .catch(() => {
+        if (!cancelled) setProfile(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [call?.id, call?.customerId, call?.leadId, call?.destination]);
 
   useEffect(() => {
     fetch("/api/admin/assignees")
@@ -140,7 +170,10 @@ export function EditCallModal({ call, onClose }: Props) {
   return (
     <div className="fixed inset-0 z-20 flex items-center justify-center bg-black/30 p-4">
       <div className="w-full max-w-sm rounded-xl bg-white p-6 shadow-lg">
-        <h3 className="text-lg font-semibold text-zinc-900">架電を編集</h3>
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <h3 className="text-lg font-semibold text-zinc-900">架電を編集</h3>
+          <CallProfileLink profile={profile} />
+        </div>
         <form onSubmit={handleSubmit} className="mt-4 space-y-4">
           <div>
             <label htmlFor="edit-date" className="block text-sm font-medium text-zinc-700">

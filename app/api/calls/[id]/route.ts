@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { syncCustomerFromCall } from "@/lib/customerSync";
 import { syncLeadFromCall } from "@/lib/leadSync";
 import { parseCallMemo, serializeCallMemo, type ScriptFlowData } from "@/lib/callFlow";
+import { resolveCallProfile } from "@/lib/callProfileLink";
 
 export async function GET(
   _request: NextRequest,
@@ -15,10 +16,17 @@ export async function GET(
   });
   if (!call) return NextResponse.json({ error: "Not found" }, { status: 404 });
   const parsed = parseCallMemo(call.memo);
+  const profile = await resolveCallProfile(prisma, {
+    customerId: call.customerId,
+    leadId: call.leadId,
+    destination: call.destination,
+    destinationPhone: call.destinationPhone,
+  });
   return NextResponse.json({
     ...call,
     memo: parsed.memoText,
     scriptFlow: parsed.scriptFlow,
+    profile,
   });
 }
 
@@ -168,10 +176,17 @@ export async function PATCH(
   } catch (syncErr) {
     console.error("Customer/lead sync after call PATCH failed", syncErr);
   }
+  const profile = await resolveCallProfile(prisma, {
+    customerId: updated.customerId,
+    leadId: updated.leadId,
+    destination: updated.destination,
+    destinationPhone: updated.destinationPhone,
+  });
   return NextResponse.json({
     ...updated,
     memo: parsed.memoText,
     scriptFlow: parsed.scriptFlow,
+    profile,
   });
 }
 

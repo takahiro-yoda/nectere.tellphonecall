@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import type { LeadStatus } from "@prisma/client";
 import { HamburgerMenu } from "./HamburgerMenu";
 import { getLastActionFromLogs } from "@/lib/customers";
@@ -14,6 +14,13 @@ import {
 import { LEAD_STATUS_OPTIONS, leadStatusChipClasses, leadStatusLabel } from "@/lib/leadStatus";
 import { JAPAN_PREFECTURES } from "@/lib/japanPrefectures";
 import { isValidLeadTagName, normalizeLeadTagName } from "@/lib/leadTags";
+import {
+  buildLeadDetailHref,
+  buildLeadsListHref,
+  hasActiveLeadsListFilters,
+  parseLeadsListFilters,
+  type LeadsListFilters,
+} from "@/lib/leadsListParams";
 
 export type LeadTagLite = { id: string; name: string; color: string | null };
 
@@ -41,6 +48,7 @@ type Props = {
   initialStatus: string;
   initialPrefecture?: string;
   initialTagFilter?: string;
+  initialSort?: ListSortPreset;
   initialAllTags: LeadTagLite[];
 };
 
@@ -75,15 +83,13 @@ function leadTagChipClass(): string {
 
 export function LeadsHome({
   initialLeads,
-  initialQ,
-  initialStatus,
-  initialPrefecture = "",
-  initialTagFilter = "",
   initialAllTags,
 }: Props) {
   const router = useRouter();
-  const [listSearch, setListSearch] = useState("");
-  const [sortPreset, setSortPreset] = useState<ListSortPreset>("updated_desc");
+  const searchParams = useSearchParams();
+  const filters = useMemo(() => parseLeadsListFilters(searchParams), [searchParams]);
+  const [qInput, setQInput] = useState(filters.q);
+  const sortPreset = filters.sort;
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
   const [bulkTagId, setBulkTagId] = useState("");
   const [bulkNewTag, setBulkNewTag] = useState("");
@@ -96,41 +102,36 @@ export function LeadsHome({
     [initialLeads],
   );
 
-  const filtered = useMemo(() => {
-    if (!listSearch.trim()) return leadsWithTags;
-    const q = listSearch.trim().toLowerCase();
-    return leadsWithTags.filter((row) => {
-      const dest = row.destination.toLowerCase();
-      const contact = (row.destinationContactName ?? "").toLowerCase();
-      const phone = (row.destinationPhone ?? "").toLowerCase();
-      const memo = (row.memo ?? "").toLowerCase();
-      const pref = (row.prefecture ?? "").toLowerCase();
-      const addr = (row.addressLine ?? "").toLowerCase();
-      const em = (row.email ?? "").toLowerCase();
-      const st = leadStatusLabel(row.status).toLowerCase();
-      const last = getLastActionFromLogs(row.actionLogs);
-      const lastLine = last
-        ? `${last.action} ${last.memoPreview}`.toLowerCase()
-        : "";
-      const tagLine = row.tags.map((t) => t.name.toLowerCase()).join(" ");
-      return (
-        dest.includes(q) ||
-        contact.includes(q) ||
-        phone.includes(q) ||
-        memo.includes(q) ||
-        pref.includes(q) ||
-        addr.includes(q) ||
-        em.includes(q) ||
-        st.includes(q) ||
-        lastLine.includes(q) ||
-        tagLine.includes(q)
-      );
-    });
-  }, [leadsWithTags, listSearch]);
-
   const sortedRows = useMemo(
-    () => sortRowsByPreset(filtered, sortPreset),
-    [filtered, sortPreset],
+    () => sortRowsByPreset(leadsWithTags, sortPreset),
+    [leadsWithTags, sortPreset],
+  );
+
+  const applyFilters = useCallback(
+    (patch: Partial<LeadsListFilters>) => {
+      const next: LeadsListFilters = { ...filters, ...patch };
+      router.replace(buildLeadsListHref(next), { scroll: false });
+    },
+    [filters, router],
+  );
+
+  useEffect(() => {
+    setQInput(filters.q);
+  }, [filters.q]);
+
+  useEffect(() => {
+    const t = window.setTimeout(() => {
+      if (qInput.trim() !== filters.q) {
+        applyFilters({ q: qInput.trim() });
+      }
+    }, 400);
+    return () => window.clearTimeout(t);
+  }, [qInput, filters.q, applyFilters]);
+
+  const resultCount = sortedRows.length;
+  const tagNameById = useMemo(
+    () => new Map(initialAllTags.map((t) => [t.id, t.name])),
+    [initialAllTags],
   );
 
   const allVisibleSelected =
@@ -208,30 +209,40 @@ export function LeadsHome({
       </header>
 
       <main className="mx-auto max-w-6xl px-4 py-8">
-        <div className="mb-4 grid gap-3 rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
-          <form className="flex flex-wrap items-end gap-2" action="/leads" method="get">
-            <div className="min-w-[140px] flex-1">
-              <label htmlFor="lead-q" className="block text-sm font-medium text-zinc-700">
-                検索（サーバー）
+        <section className="mb-4 rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-sm font-semibold text-zinc-900">絞り込み</h2>
+            <span className="text-xs text-zinc-500">{resultCount}件表示</span>
+          </div>
+          <div className="mt-3 grid gap-3 lg:grid-cols-[minmax(0,1fr)_repeat(4,minmax(0,140px))] lg:items-end">
+            <div>
+              <label htmlFor="lead-q" className="block text-xs font-medium text-zinc-600">
+                キーワード
               </label>
               <input
                 id="lead-q"
-                name="q"
                 type="search"
-                defaultValue={initialQ}
-                placeholder="電話先・担当者・電話・メール・住所"
-                className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900"
+                value={qInput}
+                onChange={(e) => setQInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    applyFilters({ q: qInput.trim() });
+                  }
+                }}
+                placeholder="電話先・担当者・電話・タグ名…"
+                className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400"
               />
             </div>
             <div>
-              <label htmlFor="lead-pref-filter" className="block text-sm font-medium text-zinc-700">
+              <label htmlFor="lead-pref-filter" className="block text-xs font-medium text-zinc-600">
                 都道府県
               </label>
               <select
                 id="lead-pref-filter"
-                name="prefecture"
-                defaultValue={initialPrefecture}
-                className="mt-1 rounded-md border border-zinc-300 bg-white px-2 py-2 text-sm text-zinc-900"
+                value={filters.prefecture}
+                onChange={(e) => applyFilters({ prefecture: e.target.value })}
+                className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-2 py-2 text-sm text-zinc-900"
               >
                 <option value="">すべて</option>
                 {JAPAN_PREFECTURES.map((p) => (
@@ -242,14 +253,14 @@ export function LeadsHome({
               </select>
             </div>
             <div>
-              <label htmlFor="lead-status-filter" className="block text-sm font-medium text-zinc-700">
+              <label htmlFor="lead-status-filter" className="block text-xs font-medium text-zinc-600">
                 ステータス
               </label>
               <select
                 id="lead-status-filter"
-                name="status"
-                defaultValue={initialStatus}
-                className="mt-1 rounded-md border border-zinc-300 bg-white px-2 py-2 text-sm text-zinc-900"
+                value={filters.status}
+                onChange={(e) => applyFilters({ status: e.target.value })}
+                className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-2 py-2 text-sm text-zinc-900"
               >
                 <option value="">すべて</option>
                 {LEAD_STATUS_OPTIONS.map((o) => (
@@ -260,14 +271,14 @@ export function LeadsHome({
               </select>
             </div>
             <div>
-              <label htmlFor="lead-tag-filter" className="block text-sm font-medium text-zinc-700">
+              <label htmlFor="lead-tag-filter" className="block text-xs font-medium text-zinc-600">
                 タグ
               </label>
               <select
                 id="lead-tag-filter"
-                name="tag"
-                defaultValue={initialTagFilter}
-                className="mt-1 max-w-[200px] rounded-md border border-zinc-300 bg-white px-2 py-2 text-sm text-zinc-900"
+                value={filters.tag}
+                onChange={(e) => applyFilters({ tag: e.target.value })}
+                className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-2 py-2 text-sm text-zinc-900"
               >
                 <option value="">すべて</option>
                 {initialAllTags.map((t) => (
@@ -277,35 +288,14 @@ export function LeadsHome({
                 ))}
               </select>
             </div>
-            <button
-              type="submit"
-              className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800"
-            >
-              絞り込み
-            </button>
-          </form>
-          <div className="grid gap-3 sm:grid-cols-2 sm:items-end">
             <div>
-              <label htmlFor="lead-list-filter" className="block text-sm font-medium text-zinc-700">
-                一覧内の絞り込み
-              </label>
-              <input
-                id="lead-list-filter"
-                type="search"
-                value={listSearch}
-                onChange={(e) => setListSearch(e.target.value)}
-                placeholder="表示中の一覧だけをさらに絞り込み（タグ名も対象）…"
-                className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400"
-              />
-            </div>
-            <div>
-              <label htmlFor="lead-sort" className="block text-sm font-medium text-zinc-700">
+              <label htmlFor="lead-sort" className="block text-xs font-medium text-zinc-600">
                 表示順
               </label>
               <select
                 id="lead-sort"
                 value={sortPreset}
-                onChange={(e) => setSortPreset(e.target.value as ListSortPreset)}
+                onChange={(e) => applyFilters({ sort: e.target.value as ListSortPreset })}
                 className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-2 py-2 text-sm text-zinc-900"
               >
                 {LIST_SORT_PRESET_OPTIONS.map((o) => (
@@ -316,8 +306,65 @@ export function LeadsHome({
               </select>
             </div>
           </div>
-        </div>
-
+          {hasActiveLeadsListFilters(filters) ? (
+            <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-zinc-100 pt-3">
+              <span className="text-xs font-medium text-zinc-500">適用中</span>
+              {filters.q ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setQInput("");
+                    applyFilters({ q: "" });
+                  }}
+                  className="inline-flex items-center gap-1 rounded-full border border-zinc-200 bg-zinc-50 px-2.5 py-0.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100"
+                >
+                  キーワード: {filters.q}
+                  <span aria-hidden>×</span>
+                </button>
+              ) : null}
+              {filters.prefecture ? (
+                <button
+                  type="button"
+                  onClick={() => applyFilters({ prefecture: "" })}
+                  className="inline-flex items-center gap-1 rounded-full border border-zinc-200 bg-zinc-50 px-2.5 py-0.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100"
+                >
+                  {filters.prefecture}
+                  <span aria-hidden>×</span>
+                </button>
+              ) : null}
+              {filters.status ? (
+                <button
+                  type="button"
+                  onClick={() => applyFilters({ status: "" })}
+                  className="inline-flex items-center gap-1 rounded-full border border-zinc-200 bg-zinc-50 px-2.5 py-0.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100"
+                >
+                  {leadStatusLabel(filters.status as LeadStatus)}
+                  <span aria-hidden>×</span>
+                </button>
+              ) : null}
+              {filters.tag ? (
+                <button
+                  type="button"
+                  onClick={() => applyFilters({ tag: "" })}
+                  className="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-rose-50 px-2.5 py-0.5 text-xs font-medium text-rose-900 hover:bg-rose-100"
+                >
+                  {tagNameById.get(filters.tag) ?? "タグ"}
+                  <span aria-hidden>×</span>
+                </button>
+              ) : null}
+              <button
+                type="button"
+                onClick={() => {
+                  setQInput("");
+                  router.replace("/leads", { scroll: false });
+                }}
+                className="text-xs font-semibold text-rose-800 underline-offset-2 hover:underline"
+              >
+                すべてクリア
+              </button>
+            </div>
+          ) : null}
+        </section>
         {selected.size > 0 ? (
           <div className="mb-4 rounded-2xl border border-rose-200 bg-rose-50/60 p-4 shadow-sm ring-1 ring-rose-100">
             <div className="flex flex-wrap items-center gap-2 gap-y-2">
@@ -394,7 +441,11 @@ export function LeadsHome({
         <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
           {initialLeads.length === 0 ? (
             <div className="space-y-3 px-4 py-10 text-center">
-              <p className="text-sm text-zinc-500">リードがまだありません。</p>
+              <p className="text-sm text-zinc-500">
+                {hasActiveLeadsListFilters(filters)
+                  ? "条件に一致するリードがありません。"
+                  : "リードがまだありません。"}
+              </p>
               <div className="flex flex-wrap items-center justify-center gap-2">
                 <Link
                   href="/leads/quick-add"
@@ -468,11 +519,11 @@ export function LeadsHome({
                         key={row.id}
                         role="link"
                         tabIndex={0}
-                        onClick={() => router.push(`/leads/${row.id}`)}
+                        onClick={() => router.push(buildLeadDetailHref(row.id, filters))}
                         onKeyDown={(e) => {
                           if (e.key === "Enter" || e.key === " ") {
                             e.preventDefault();
-                            router.push(`/leads/${row.id}`);
+                            router.push(buildLeadDetailHref(row.id, filters));
                           }
                         }}
                         className={`cursor-pointer border-b border-zinc-100 transition-colors hover:bg-zinc-50/70 ${

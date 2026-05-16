@@ -1,7 +1,9 @@
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { LeadsHome } from "../components/LeadsHome";
 import { parseLeadStatus } from "@/lib/leadStatus";
+import { parseLeadsListFilters } from "@/lib/leadsListParams";
 import type { Prisma } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
@@ -14,17 +16,25 @@ export const metadata = {
 export default async function LeadsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; status?: string; selected?: string; prefecture?: string; tag?: string }>;
+  searchParams: Promise<{
+    q?: string;
+    status?: string;
+    selected?: string;
+    prefecture?: string;
+    tag?: string;
+    sort?: string;
+  }>;
 }) {
   const sp = await searchParams;
   const legacySelected = sp.selected?.trim();
   if (legacySelected) {
     redirect(`/leads/${legacySelected}`);
   }
-  const q = (sp.q ?? "").trim();
-  const statusFilter = parseLeadStatus(sp.status?.trim());
-  const prefecture = (sp.prefecture ?? "").trim();
-  const tagId = (sp.tag ?? "").trim();
+  const filters = parseLeadsListFilters(sp);
+  const q = filters.q;
+  const statusFilter = parseLeadStatus(filters.status);
+  const prefecture = filters.prefecture;
+  const tagId = filters.tag;
 
   const qDigits = q.replace(/\D/g, "");
   const orClause: Prisma.LeadWhereInput[] = [
@@ -32,6 +42,7 @@ export default async function LeadsPage({
     { destinationContactName: { contains: q, mode: "insensitive" } },
     { email: { contains: q, mode: "insensitive" } },
     { addressLine: { contains: q, mode: "insensitive" } },
+    { tags: { some: { name: { contains: q, mode: "insensitive" } } } },
   ];
   if (qDigits.length >= 2) {
     orClause.push({ destinationPhone: { contains: qDigits } });
@@ -59,14 +70,23 @@ export default async function LeadsPage({
     }),
   ]);
 
+  const serialized = {
+    initialLeads: JSON.parse(JSON.stringify(rows)),
+    initialQ: q,
+    initialStatus: statusFilter ?? "",
+    initialPrefecture: prefecture,
+    initialTagFilter: tagId,
+    initialSort: filters.sort,
+    initialAllTags: JSON.parse(JSON.stringify(allTags)),
+  };
+
   return (
-    <LeadsHome
-      initialLeads={JSON.parse(JSON.stringify(rows))}
-      initialQ={q}
-      initialStatus={statusFilter ?? ""}
-      initialPrefecture={prefecture}
-      initialTagFilter={tagId}
-      initialAllTags={JSON.parse(JSON.stringify(allTags))}
-    />
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-zinc-50 p-8 text-sm text-zinc-500">読み込み中…</div>
+      }
+    >
+      <LeadsHome {...serialized} />
+    </Suspense>
   );
 }

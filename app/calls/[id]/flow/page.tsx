@@ -4,7 +4,9 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { HamburgerMenu } from "@/app/components/HamburgerMenu";
+import { CallProfileLink } from "@/app/components/CallProfileLink";
 import type { ScriptFlowData, ScriptFlowStep } from "@/lib/callFlow";
+import type { CallProfileLink as CallProfileLinkData } from "@/lib/callProfileLink";
 
 type ScriptEdge = {
   id: string;
@@ -75,6 +77,7 @@ export default function CallFlowPage() {
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [profile, setProfile] = useState<CallProfileLinkData | null>(null);
 
   useEffect(() => {
     async function load() {
@@ -83,8 +86,9 @@ export default function CallFlowPage() {
       try {
         const callRes = await fetch(`/api/calls/${callId}`);
         if (!callRes.ok) throw new Error("架電データの取得に失敗しました");
-        const callData = (await callRes.json()) as CallRecord;
+        const callData = (await callRes.json()) as CallRecord & { profile?: CallProfileLinkData | null };
         setCall(callData);
+        setProfile(callData.profile ?? null);
         setMemo(callData.memo ?? "");
         setDestination(callData.destination ?? "");
         setDestinationContactName(callData.destinationContactName ?? "");
@@ -210,8 +214,9 @@ export default function CallFlowPage() {
         }),
       });
       if (!res.ok) throw new Error(`保存に失敗しました (status: ${res.status})`);
-      const updated = (await res.json()) as CallRecord;
+      const updated = (await res.json()) as CallRecord & { profile?: CallProfileLinkData | null };
       setCall(updated);
+      setProfile(updated.profile ?? null);
       router.refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : "保存エラー");
@@ -242,12 +247,15 @@ export default function CallFlowPage() {
               </p>
             </div>
           </div>
-          <Link
-            href="/calls"
-            className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
-          >
-            一覧へ戻る
-          </Link>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <CallProfileLink profile={profile} />
+            <Link
+              href="/calls"
+              className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+            >
+              一覧へ戻る
+            </Link>
+          </div>
         </div>
       </header>
 
@@ -255,9 +263,17 @@ export default function CallFlowPage() {
         <section className="space-y-4">
           <div className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
             <div className="grid gap-4 sm:grid-cols-2">
-              <div>
+              <div className="sm:col-span-2">
                 <div className="text-xs font-medium tracking-wide text-zinc-500">電話先</div>
-                <div className="mt-1 text-sm font-semibold text-zinc-900">{call.destination || "未設定"}</div>
+                <div className="mt-1 flex flex-wrap items-center gap-2">
+                  <span className="text-sm font-semibold text-zinc-900">{call.destination || "未設定"}</span>
+                  <CallProfileLink profile={profile} variant="inline" />
+                </div>
+                {!profile ? (
+                  <p className="mt-1 text-[11px] text-zinc-500">
+                    紐づく顧客・営業先が見つかりません。リストから架電を開始するとプロフィールへリンクされます。
+                  </p>
+                ) : null}
               </div>
               <div>
                 <div className="text-xs font-medium tracking-wide text-zinc-500">通話タイプ</div>
