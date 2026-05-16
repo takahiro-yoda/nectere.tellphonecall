@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useDebouncedAutoSave } from "@/lib/useDebouncedAutoSave";
 import { HamburgerMenu } from "./HamburgerMenu";
 import { CustomerDestinationCombobox } from "./CustomerDestinationCombobox";
 import { PrefectureInput } from "./PrefectureInput";
@@ -11,6 +12,7 @@ import { ActionLogHistorySection } from "./ActionLogHistorySection";
 import { RecordUrlsEditor } from "./RecordUrlsEditor";
 import { parseRecordUrls } from "@/lib/extraUrls";
 import { buildCallsPrefillHref } from "@/lib/callPrefill";
+import { RecordTagsEditor } from "./RecordTagsEditor";
 import type { CustomerRowSerialized } from "./CustomersHome";
 
 function formatDt(iso: string): string {
@@ -56,10 +58,8 @@ export function CustomerDetailClient({ initialCustomer }: Props) {
   const [email, setEmail] = useState(customer.email ?? "");
   const [memo, setMemo] = useState(customer.memo ?? "");
   const [urlList, setUrlList] = useState(() => parseRecordUrls((customer as { urls?: unknown }).urls));
-  const [saving, setSaving] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     setDest(customer.destination);
     setContactName(customer.destinationContactName ?? "");
     setContactKana(customer.destinationContactKana ?? "");
@@ -69,8 +69,56 @@ export function CustomerDetailClient({ initialCustomer }: Props) {
     setEmail(customer.email ?? "");
     setMemo(customer.memo ?? "");
     setUrlList(parseRecordUrls((customer as { urls?: unknown }).urls));
-    setSaveError(null);
   }, [customer.id, customer.updatedAt]);
+
+  const serverPayload = useMemo(
+    () => ({
+      destination: customer.destination.trim(),
+      destinationContactName: customer.destinationContactName?.trim() || null,
+      destinationContactKana: customer.destinationContactKana?.trim() || null,
+      destinationPhone: customer.destinationPhone?.trim() || null,
+      prefecture: customer.prefecture?.trim() || null,
+      addressLine: customer.addressLine?.trim() || null,
+      email: customer.email?.trim() || null,
+      memo: customer.memo?.trim() || null,
+      urls: parseRecordUrls((customer as { urls?: unknown }).urls),
+    }),
+    [customer],
+  );
+
+  const savePayload = useMemo(
+    () => ({
+      destination: dest.trim(),
+      destinationContactName: contactName.trim() || null,
+      destinationContactKana: contactKana.trim() || null,
+      destinationPhone: phone.trim() || null,
+      prefecture: prefecture.trim() || null,
+      addressLine: addressLine.trim() || null,
+      email: email.trim() || null,
+      memo: memo.trim() || null,
+      urls: urlList,
+    }),
+    [dest, contactName, contactKana, phone, prefecture, addressLine, email, memo, urlList],
+  );
+
+  const { status: saveStatus, error: saveError, isSaving } = useDebouncedAutoSave({
+    resetKey: `${customer.id}:${customer.updatedAt}`,
+    baselinePayload: serverPayload,
+    payload: savePayload,
+    save: async (body) => {
+      const res = await fetch(`/api/customers/${customer.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const data = (await res.json().catch(() => ({}))) as { error?: string };
+        return { ok: false, error: data.error ?? `保存に失敗しました (${res.status})` };
+      }
+      return { ok: true };
+    },
+    onSuccess: () => router.refresh(),
+  });
 
   const callsPrefillHref = dest.trim()
     ? buildCallsPrefillHref({
@@ -87,37 +135,6 @@ export function CustomerDetailClient({ initialCustomer }: Props) {
         ].filter(Boolean),
       })
     : null;
-
-  async function handleSave(e: React.FormEvent) {
-    e.preventDefault();
-    setSaving(true);
-    setSaveError(null);
-    try {
-      const res = await fetch(`/api/customers/${customer.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          destination: dest.trim(),
-          destinationContactName: contactName.trim() || null,
-          destinationContactKana: contactKana.trim() || null,
-          destinationPhone: phone.trim() || null,
-          prefecture: prefecture.trim() || null,
-          addressLine: addressLine.trim() || null,
-          email: email.trim() || null,
-          memo: memo.trim() || null,
-          urls: urlList,
-        }),
-      });
-      if (!res.ok) {
-        const data = (await res.json().catch(() => ({}))) as { error?: string };
-        setSaveError(data.error ?? `保存に失敗しました (${res.status})`);
-        return;
-      }
-      router.refresh();
-    } finally {
-      setSaving(false);
-    }
-  }
 
   return (
     <div className="min-h-screen bg-zinc-50">
@@ -180,6 +197,11 @@ export function CustomerDetailClient({ initialCustomer }: Props) {
                 <div className="text-xs font-medium tracking-wide text-zinc-500">メール</div>
                 <div className="mt-1 text-sm font-semibold text-zinc-900">{displayField(email)}</div>
               </div>
+              <RecordTagsEditor
+                recordType="customer"
+                recordId={customer.id}
+                initialTags={customer.tags ?? []}
+              />
               <div className="sm:col-span-2">
                 <div className="text-xs font-medium tracking-wide text-zinc-500">メモ</div>
                 <div className="mt-1 line-clamp-4 text-sm font-semibold text-zinc-900 whitespace-pre-wrap">
@@ -216,7 +238,12 @@ export function CustomerDetailClient({ initialCustomer }: Props) {
         <aside className="space-y-3 lg:sticky lg:top-6 lg:self-start">
           <section className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
             <h2 className="text-sm font-semibold text-zinc-800">詳細情報を編集</h2>
-            <form className="mt-3 space-y-3" onSubmit={handleSave}>
+            <form
+              className="mt-3 space-y-3"
+              onSubmit={(e) => {
+                e.preventDefault();
+              }}
+            >
               {callsPrefillHref ? (
                 <Link
                   href={callsPrefillHref}
@@ -329,14 +356,17 @@ export function CustomerDetailClient({ initialCustomer }: Props) {
                 <p className="text-sm text-red-600" role="alert">
                   {saveError}
                 </p>
-              ) : null}
-              <button
-                type="submit"
-                disabled={saving}
-                className="mt-1 w-full rounded-lg bg-zinc-900 px-4 py-2 text-sm font-semibold text-white hover:bg-zinc-800 disabled:opacity-50"
-              >
-                {saving ? "保存中…" : "保存"}
-              </button>
+              ) : isSaving ? (
+                <p className="text-xs text-zinc-500" aria-live="polite">
+                  保存中…
+                </p>
+              ) : saveStatus === "saved" ? (
+                <p className="text-xs text-emerald-700" aria-live="polite">
+                  保存済み
+                </p>
+              ) : (
+                <p className="text-xs text-zinc-400">変更は自動で保存されます</p>
+              )}
             </form>
           </section>
         </aside>

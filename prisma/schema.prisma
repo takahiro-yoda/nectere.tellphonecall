@@ -38,10 +38,22 @@ model Customer {
   updatedAt                  DateTime @updatedAt
 
   calls Call[]
+  tags  CustomerTag[]
 
   @@index([destination])
   @@index([prefecture])
   @@index([email])
+}
+
+/// 顧客用タグ
+model CustomerTag {
+  id        String     @id @default(cuid())
+  name      String     @unique
+  color     String?
+  createdAt DateTime   @default(now())
+  customers Customer[]
+
+  @@index([name])
 }
 
 /// 営業先リスト（顧客と同じ項目＋リードステータス）

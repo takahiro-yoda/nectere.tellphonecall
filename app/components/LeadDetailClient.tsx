@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useLayoutEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useDebouncedAutoSave } from "@/lib/useDebouncedAutoSave";
 import type { LeadStatus } from "@prisma/client";
 import { HamburgerMenu } from "./HamburgerMenu";
 import { CustomerDestinationCombobox } from "./CustomerDestinationCombobox";
@@ -13,6 +14,7 @@ import { RecordUrlsEditor } from "./RecordUrlsEditor";
 import { parseRecordUrls } from "@/lib/extraUrls";
 import { LEAD_STATUS_OPTIONS, leadStatusChipClasses, leadStatusLabel } from "@/lib/leadStatus";
 import { buildCallsPrefillHref } from "@/lib/callPrefill";
+import { RecordTagsEditor } from "./RecordTagsEditor";
 import type { LeadRowSerialized } from "./LeadsHome";
 
 function formatDt(iso: string): string {
@@ -60,12 +62,11 @@ export function LeadDetailClient({ initialLead, listReturnHref }: Props) {
   const [memo, setMemo] = useState(lead.memo ?? "");
   const [urlList, setUrlList] = useState(() => parseRecordUrls((lead as { urls?: unknown }).urls));
   const [status, setStatus] = useState<LeadStatus>(lead.status);
-  const [saving, setSaving] = useState(false);
   const [migrateSaving, setMigrateSaving] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
+  const [migrateError, setMigrateError] = useState<string | null>(null);
   const [conflictCustomerId, setConflictCustomerId] = useState<string | null>(null);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     setDest(lead.destination);
     setContactName(lead.destinationContactName ?? "");
     setContactKana(lead.destinationContactKana ?? "");
@@ -76,9 +77,60 @@ export function LeadDetailClient({ initialLead, listReturnHref }: Props) {
     setMemo(lead.memo ?? "");
     setUrlList(parseRecordUrls((lead as { urls?: unknown }).urls));
     setStatus(lead.status);
-    setSaveError(null);
+    setMigrateError(null);
     setConflictCustomerId(null);
   }, [lead.id, lead.updatedAt]);
+
+  const serverPayload = useMemo(
+    () => ({
+      destination: lead.destination.trim(),
+      destinationContactName: lead.destinationContactName?.trim() || null,
+      destinationContactKana: lead.destinationContactKana?.trim() || null,
+      destinationPhone: lead.destinationPhone?.trim() || null,
+      prefecture: lead.prefecture?.trim() || null,
+      addressLine: lead.addressLine?.trim() || null,
+      email: lead.email?.trim() || null,
+      memo: lead.memo?.trim() || null,
+      status: lead.status,
+      urls: parseRecordUrls((lead as { urls?: unknown }).urls),
+    }),
+    [lead],
+  );
+
+  const savePayload = useMemo(
+    () => ({
+      destination: dest.trim(),
+      destinationContactName: contactName.trim() || null,
+      destinationContactKana: contactKana.trim() || null,
+      destinationPhone: phone.trim() || null,
+      prefecture: prefecture.trim() || null,
+      addressLine: addressLine.trim() || null,
+      email: email.trim() || null,
+      memo: memo.trim() || null,
+      status,
+      urls: urlList,
+    }),
+    [dest, contactName, contactKana, phone, prefecture, addressLine, email, memo, status, urlList],
+  );
+
+  const { status: saveStatus, error: saveError, isSaving } = useDebouncedAutoSave({
+    resetKey: `${lead.id}:${lead.updatedAt}`,
+    baselinePayload: serverPayload,
+    payload: savePayload,
+    save: async (body) => {
+      const res = await fetch(`/api/leads/${lead.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const data = (await res.json().catch(() => ({}))) as { error?: string };
+        return { ok: false, error: data.error ?? `保存に失敗しました (${res.status})` };
+      }
+      return { ok: true };
+    },
+    onSuccess: () => router.refresh(),
+  });
 
   const callsPrefillHref = dest.trim()
     ? buildCallsPrefillHref({
@@ -97,38 +149,6 @@ export function LeadDetailClient({ initialLead, listReturnHref }: Props) {
       })
     : null;
 
-  async function handleSave(e: React.FormEvent) {
-    e.preventDefault();
-    setSaving(true);
-    setSaveError(null);
-    try {
-      const res = await fetch(`/api/leads/${lead.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          destination: dest.trim(),
-          destinationContactName: contactName.trim() || null,
-          destinationContactKana: contactKana.trim() || null,
-          destinationPhone: phone.trim() || null,
-          prefecture: prefecture.trim() || null,
-          addressLine: addressLine.trim() || null,
-          email: email.trim() || null,
-          memo: memo.trim() || null,
-          status,
-          urls: urlList,
-        }),
-      });
-      if (!res.ok) {
-        const data = (await res.json().catch(() => ({}))) as { error?: string };
-        setSaveError(data.error ?? `保存に失敗しました (${res.status})`);
-        return;
-      }
-      router.refresh();
-    } finally {
-      setSaving(false);
-    }
-  }
-
   async function handleMigrateToCustomer() {
     if (
       !confirm(
@@ -138,7 +158,7 @@ export function LeadDetailClient({ initialLead, listReturnHref }: Props) {
       return;
     }
     setMigrateSaving(true);
-    setSaveError(null);
+    setMigrateError(null);
     setConflictCustomerId(null);
     try {
       const res = await fetch(`/api/leads/${lead.id}/convert-to-customer`, { method: "POST" });
@@ -150,10 +170,10 @@ export function LeadDetailClient({ initialLead, listReturnHref }: Props) {
       if (!res.ok) {
         if (res.status === 409 && data.existingCustomerId) {
           setConflictCustomerId(data.existingCustomerId);
-          setSaveError(data.error ?? "同一の顧客が既に登録されています。");
+          setMigrateError(data.error ?? "同一の顧客が既に登録されています。");
           return;
         }
-        setSaveError(data.error ?? `移行に失敗しました (${res.status})`);
+        setMigrateError(data.error ?? `移行に失敗しました (${res.status})`);
         return;
       }
       if (data.customerId) {
@@ -233,24 +253,7 @@ export function LeadDetailClient({ initialLead, listReturnHref }: Props) {
                 <div className="text-xs font-medium tracking-wide text-zinc-500">メール</div>
                 <div className="mt-1 text-sm font-semibold text-zinc-900">{displayField(email)}</div>
               </div>
-              <div className="sm:col-span-2">
-                <div className="text-xs font-medium tracking-wide text-zinc-500">タグ</div>
-                <div className="mt-1 flex flex-wrap gap-1.5">
-                  {(lead.tags ?? []).length === 0 ? (
-                    <span className="text-sm text-zinc-400">なし</span>
-                  ) : (
-                    (lead.tags ?? []).map((t) => (
-                      <span
-                        key={t.id}
-                        className="inline-flex rounded-full border border-rose-200 bg-rose-50 px-2.5 py-0.5 text-xs font-medium text-rose-900"
-                      >
-                        {t.name}
-                      </span>
-                    ))
-                  )}
-                </div>
-                <p className="mt-1 text-[11px] text-zinc-500">一覧で行を選び、タグの一括付与ができます。</p>
-              </div>
+              <RecordTagsEditor recordType="lead" recordId={lead.id} initialTags={lead.tags ?? []} />
               <div className="sm:col-span-2">
                 <div className="text-xs font-medium tracking-wide text-zinc-500">メモ</div>
                 <div className="mt-1 line-clamp-4 text-sm font-semibold text-zinc-900 whitespace-pre-wrap">
@@ -287,11 +290,16 @@ export function LeadDetailClient({ initialLead, listReturnHref }: Props) {
         <aside className="space-y-3 lg:sticky lg:top-6 lg:self-start">
           <section className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
             <h2 className="text-sm font-semibold text-zinc-800">詳細情報を編集</h2>
-            <form className="mt-3 space-y-3" onSubmit={handleSave}>
+            <form
+              className="mt-3 space-y-3"
+              onSubmit={(e) => {
+                e.preventDefault();
+              }}
+            >
               <button
                 type="button"
                 onClick={() => void handleMigrateToCustomer()}
-                disabled={migrateSaving || saving}
+                disabled={migrateSaving || isSaving}
                 className="w-full rounded-lg border border-violet-300 bg-violet-50 px-3 py-2.5 text-sm font-semibold text-violet-900 hover:bg-violet-100 disabled:opacity-50"
               >
                 {migrateSaving ? "移行処理中…" : "顧客データベースへ移行"}
@@ -322,7 +330,7 @@ export function LeadDetailClient({ initialLead, listReturnHref }: Props) {
                     </option>
                   ))}
                 </select>
-                <p className="mt-2 text-xs text-zinc-500">保存後のタグ色プレビュー</p>
+                <p className="mt-2 text-xs text-zinc-500">ステータスのプレビュー</p>
                 <span className={`mt-1 ${leadStatusChipClasses(status)}`}>{leadStatusLabel(status)}</span>
               </div>
 
@@ -426,9 +434,9 @@ export function LeadDetailClient({ initialLead, listReturnHref }: Props) {
                 </div>
               </div>
 
-              {saveError ? (
+              {migrateError ? (
                 <p className="text-sm text-red-600" role="alert">
-                  {saveError}
+                  {migrateError}
                   {conflictCustomerId ? (
                     <>
                       {" "}
@@ -442,13 +450,21 @@ export function LeadDetailClient({ initialLead, listReturnHref }: Props) {
                   ) : null}
                 </p>
               ) : null}
-              <button
-                type="submit"
-                disabled={saving}
-                className="mt-1 w-full rounded-lg bg-zinc-900 px-4 py-2 text-sm font-semibold text-white hover:bg-zinc-800 disabled:opacity-50"
-              >
-                {saving ? "保存中…" : "保存"}
-              </button>
+              {saveError ? (
+                <p className="text-sm text-red-600" role="alert">
+                  {saveError}
+                </p>
+              ) : isSaving ? (
+                <p className="text-xs text-zinc-500" aria-live="polite">
+                  保存中…
+                </p>
+              ) : saveStatus === "saved" ? (
+                <p className="text-xs text-emerald-700" aria-live="polite">
+                  保存済み
+                </p>
+              ) : (
+                <p className="text-xs text-zinc-400">変更は自動で保存されます</p>
+              )}
             </form>
           </section>
         </aside>

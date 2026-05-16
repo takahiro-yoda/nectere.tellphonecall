@@ -18,7 +18,10 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 
 export default async function CustomerDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const row = await prisma.customer.findUnique({ where: { id } });
+  const row = await prisma.customer.findUnique({
+    where: { id },
+    include: { tags: { orderBy: { name: "asc" }, select: { id: true, name: true, color: true } } },
+  });
   if (!row) notFound();
   return <CustomerDetailClient initialCustomer={JSON.parse(JSON.stringify(row))} />;
 }

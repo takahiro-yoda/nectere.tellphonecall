@@ -25,6 +25,7 @@ export type CustomerRowSerialized = {
   memo: string | null;
   actionLogs: unknown;
   urls?: unknown;
+  tags?: { id: string; name: string; color: string | null }[];
   createdAt: string;
   updatedAt: string;
 };
