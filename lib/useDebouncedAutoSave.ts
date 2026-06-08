@@ -28,6 +28,7 @@ export function useDebouncedAutoSave<T>({
   const inFlightRef = useRef(false);
   const queuedRef = useRef(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const saveGenerationRef = useRef(0);
   const payloadRef = useRef(payload);
   payloadRef.current = payload;
 
@@ -35,7 +36,10 @@ export function useDebouncedAutoSave<T>({
   const baselineSerialized = JSON.stringify(baselinePayload);
 
   useEffect(() => {
+    saveGenerationRef.current += 1;
     baselineRef.current = baselineSerialized;
+    inFlightRef.current = false;
+    queuedRef.current = false;
     setStatus("idle");
     setError(null);
     if (timerRef.current) {
@@ -51,7 +55,9 @@ export function useDebouncedAutoSave<T>({
     if (timerRef.current) clearTimeout(timerRef.current);
     timerRef.current = setTimeout(() => {
       timerRef.current = null;
-      void runSave(serialized);
+      const frozenPayload = payloadRef.current;
+      const frozenSerialized = JSON.stringify(frozenPayload);
+      void runSave(frozenPayload, frozenSerialized);
     }, delayMs);
 
     return () => {
@@ -63,31 +69,37 @@ export function useDebouncedAutoSave<T>({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [serialized, delayMs]);
 
-  async function runSave(snapshotSerialized: string) {
-    if (snapshotSerialized === baselineRef.current) return;
+  async function runSave(frozenPayload: T, frozenSerialized: string) {
+    if (frozenSerialized === baselineRef.current) return;
     if (inFlightRef.current) {
       queuedRef.current = true;
       return;
     }
+    const generation = saveGenerationRef.current;
     inFlightRef.current = true;
     setStatus("saving");
     setError(null);
-    const snapshotPayload = payloadRef.current;
 
     try {
-      const result = await save(snapshotPayload);
+      const result = await save(frozenPayload);
+      if (generation !== saveGenerationRef.current) return;
       if (!result.ok) {
         setError(result.error ?? "保存に失敗しました");
         setStatus("error");
         return;
       }
-      baselineRef.current = snapshotSerialized;
+      baselineRef.current = frozenSerialized;
       setStatus("saved");
       onSuccess?.();
     } catch {
+      if (generation !== saveGenerationRef.current) return;
       setError("保存に失敗しました");
       setStatus("error");
     } finally {
+      if (generation !== saveGenerationRef.current) {
+        inFlightRef.current = false;
+        return;
+      }
       inFlightRef.current = false;
       const currentSerialized = JSON.stringify(payloadRef.current);
       if (queuedRef.current || currentSerialized !== baselineRef.current) {
@@ -97,7 +109,9 @@ export function useDebouncedAutoSave<T>({
           if (timerRef.current) clearTimeout(timerRef.current);
           timerRef.current = setTimeout(() => {
             timerRef.current = null;
-            void runSave(currentSerialized);
+            const nextPayload = payloadRef.current;
+            const nextSerialized = JSON.stringify(nextPayload);
+            void runSave(nextPayload, nextSerialized);
           }, delayMs);
         }
       }

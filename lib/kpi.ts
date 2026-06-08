@@ -722,3 +722,25 @@ export const KPI_TEMPLATES = [
   { name: "応答率", dataSource: "RESPONSE_RATE" as KpiDataSource, unitSymbol: "%" },
   { name: "契約数", dataSource: "CONTRACT_COUNT" as KpiDataSource, unitSymbol: "件" },
 ];
+
+/** ダッシュボード表示順を一括更新（先頭が sortOrder 0） */
+export async function reorderKpiDefinitions(orderedIds: string[]): Promise<void> {
+  if (orderedIds.length === 0) return;
+
+  const existing = await prisma.kpiDefinition.findMany({
+    where: { id: { in: orderedIds } },
+    select: { id: true },
+  });
+  if (existing.length !== orderedIds.length) {
+    throw new Error("invalid ids");
+  }
+
+  await prisma.$transaction(
+    orderedIds.map((id, index) =>
+      prisma.kpiDefinition.update({
+        where: { id },
+        data: { sortOrder: index },
+      })
+    )
+  );
+}

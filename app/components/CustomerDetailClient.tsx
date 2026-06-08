@@ -69,7 +69,7 @@ export function CustomerDetailClient({ initialCustomer }: Props) {
     setEmail(customer.email ?? "");
     setMemo(customer.memo ?? "");
     setUrlList(parseRecordUrls((customer as { urls?: unknown }).urls));
-  }, [customer.id, customer.updatedAt]);
+  }, [customer.id]);
 
   const serverPayload = useMemo(
     () => ({

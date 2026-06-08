@@ -79,7 +79,7 @@ export function LeadDetailClient({ initialLead, listReturnHref }: Props) {
     setStatus(lead.status);
     setMigrateError(null);
     setConflictCustomerId(null);
-  }, [lead.id, lead.updatedAt]);
+  }, [lead.id]);
 
   const serverPayload = useMemo(
     () => ({
