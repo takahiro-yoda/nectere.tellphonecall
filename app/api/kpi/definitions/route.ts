@@ -10,7 +10,10 @@ const VALID_SOURCES = new Set<string>(Object.keys(KpiDataSource));
 export async function GET() {
   await ensureDefaultUnits();
   const items = await prisma.kpiDefinition.findMany({
-    include: { unit: true },
+    include: {
+      unit: true,
+      tags: { orderBy: { name: "asc" }, select: { id: true, name: true, color: true } },
+    },
     orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
   });
   return NextResponse.json({

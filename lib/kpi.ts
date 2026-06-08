@@ -12,11 +12,14 @@ import {
 
 export type KpiUnitInfo = Pick<KpiUnit, "id" | "name" | "symbol" | "position">;
 
+export type KpiTagLite = { id: string; name: string; color: string | null };
+
 export type KpiDashboardItem = {
   id: string;
   name: string;
   dataSource: KpiDataSource;
   unit: KpiUnitInfo;
+  tags: KpiTagLite[];
   target: number | null;
   actual: number | null;
   achievementRate: number | null;
@@ -578,7 +581,10 @@ export async function getKpiDashboard(
 
   const definitions = await prisma.kpiDefinition.findMany({
     where: { isActive: true },
-    include: { unit: true },
+    include: {
+      unit: true,
+      tags: { orderBy: { name: "asc" }, select: { id: true, name: true, color: true } },
+    },
     orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
   });
 
@@ -637,6 +643,7 @@ export async function getKpiDashboard(
       id: def.id,
       name: def.name,
       dataSource: def.dataSource,
+      tags: def.tags,
       unit: {
         id: def.unit.id,
         name: def.unit.name,

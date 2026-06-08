@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import type { KpiDataSource } from "@prisma/client";
 import { KPI_DATA_SOURCE_LABELS, KPI_TEMPLATES } from "@/lib/kpi";
+import type { KpiTagLite } from "@/lib/kpiTags";
+import { KpiDefinitionTagsEditor } from "./KpiDefinitionTagsEditor";
 
 const inputClass =
   "mt-1 rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400";
@@ -22,6 +24,7 @@ type KpiDefinition = {
   unit: KpiUnit;
   isActive: boolean;
   sortOrder: number;
+  tags: KpiTagLite[];
   dataSourceLabel?: string;
 };
 
@@ -376,11 +379,12 @@ export function KpiDefinitionsManager() {
               順番を保存中…
             </p>
           )}
-          <table className="w-full min-w-[560px] text-left text-sm">
+          <table className="w-full min-w-[720px] text-left text-sm">
             <thead>
               <tr className="border-b border-zinc-200 bg-zinc-50">
                 <th className="w-14 px-3 py-3 font-semibold text-zinc-700" />
                 <th className="px-4 py-3 font-semibold text-zinc-700">名称</th>
+                <th className="px-4 py-3 font-semibold text-zinc-700">タグ</th>
                 <th className="px-4 py-3 font-semibold text-zinc-700">単位</th>
                 <th className="px-4 py-3 font-semibold text-zinc-700">ソース</th>
                 <th className="px-4 py-3 font-semibold text-zinc-700">状態</th>
@@ -434,6 +438,12 @@ export function KpiDefinitionsManager() {
                         </div>
                       </td>
                       <td className="px-4 py-3 font-medium text-zinc-900">{item.name}</td>
+                      <td className="px-4 py-3 align-top">
+                        <KpiDefinitionTagsEditor
+                          definitionId={item.id}
+                          initialTags={item.tags ?? []}
+                        />
+                      </td>
                       <td className="px-4 py-3 text-zinc-600">{item.unit.symbol}</td>
                       <td className="px-4 py-3 text-zinc-600">
                         {item.dataSourceLabel ?? KPI_DATA_SOURCE_LABELS[item.dataSource]}

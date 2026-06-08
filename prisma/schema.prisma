@@ -277,6 +277,17 @@ model KpiUnit {
   kpis      KpiDefinition[]
 }
 
+/// KPI定義用タグ（ダッシュボード絞り込み）
+model KpiTag {
+  id        String          @id @default(cuid())
+  name      String          @unique
+  color     String?
+  createdAt DateTime        @default(now())
+  kpis      KpiDefinition[]
+
+  @@index([name])
+}
+
 model KpiDefinition {
   id           String           @id @default(cuid())
   name         String
@@ -286,6 +297,7 @@ model KpiDefinition {
   sortOrder    Int              @default(0)
   isActive     Boolean          @default(true)
   periodValues KpiPeriodValue[]
+  tags         KpiTag[]
 }
 
 model KpiPeriodValue {

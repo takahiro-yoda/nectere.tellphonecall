@@ -57,3 +57,14 @@ export async function fetchCustomerTags(prisma: PrismaClient, customerId: string
   });
   return row?.tags ?? [];
 }
+
+export async function fetchKpiDefinitionTags(
+  prisma: PrismaClient,
+  kpiDefinitionId: string,
+): Promise<RecordTagRow[]> {
+  const row = await prisma.kpiDefinition.findUnique({
+    where: { id: kpiDefinitionId },
+    select: { tags: { orderBy: { name: "asc" }, select: { id: true, name: true, color: true } } },
+  });
+  return row?.tags ?? [];
+}

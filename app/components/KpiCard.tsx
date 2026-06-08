@@ -21,6 +21,18 @@ export function KpiCard({ item }: KpiCardProps) {
         <div className="min-w-0 flex-1">
           <h3 className="font-semibold text-zinc-900">{item.name}</h3>
           <p className="mt-0.5 text-xs text-zinc-400">{item.unit.name}</p>
+          {(item.tags ?? []).length > 0 ? (
+            <div className="mt-1.5 flex flex-wrap gap-1">
+              {(item.tags ?? []).map((tag) => (
+                <span
+                  key={tag.id}
+                  className="rounded-full border border-sky-200 bg-sky-50 px-2 py-0.5 text-[10px] font-medium text-sky-800"
+                >
+                  {tag.name}
+                </span>
+              ))}
+            </div>
+          ) : null}
 
           <div className="mt-3 grid grid-cols-2 gap-3">
             <div>
