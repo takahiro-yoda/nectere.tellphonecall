@@ -179,6 +179,21 @@ export default async function HomeHubPage() {
 
           <div className="grid gap-5 sm:grid-cols-2 lg:col-span-12">
             <Link
+              href="/kpi"
+              className="group flex min-h-[180px] flex-col rounded-3xl border border-zinc-200/90 bg-white p-7 shadow-sm transition hover:border-teal-200/80 hover:shadow-lg"
+            >
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-teal-50 text-teal-700 ring-1 ring-teal-100">
+                  <IconChart className="h-6 w-6" />
+                </div>
+                <ArrowRight className="h-5 w-5 shrink-0 text-zinc-300 transition group-hover:text-teal-700" />
+              </div>
+              <h3 className="mt-5 text-xl font-bold text-zinc-900">KPI管理</h3>
+              <p className="mt-2 text-sm leading-relaxed text-zinc-600">
+                カスタムKPIの目標設定、週・月ごとの実績管理、達成度の可視化。
+              </p>
+            </Link>
+            <Link
               href="/analytics"
               className="group flex min-h-[180px] flex-col rounded-3xl border border-zinc-200/90 bg-white p-7 shadow-sm transition hover:border-emerald-200/80 hover:shadow-lg"
             >

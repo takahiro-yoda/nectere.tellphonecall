@@ -10,6 +10,7 @@ const NAV_ITEMS = [
   { href: "/leads", label: "営業先" },
   { href: "/calls", label: "架電" },
   { href: "/contracts", label: "契約・売上" },
+  { href: "/kpi", label: "KPI" },
   { href: "/admin", label: "管理" },
 ];
 

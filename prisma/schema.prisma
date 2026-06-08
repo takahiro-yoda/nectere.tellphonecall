@@ -259,3 +259,44 @@ model PricingPriceCell {
   priceYen  Int?
   @@unique([segmentId, courseId])
 }
+
+enum KpiDataSource {
+  MANUAL
+  CALL_COUNT
+  APPOINTMENT_RATE
+  RESPONSE_RATE
+  CONTRACT_COUNT
+}
+
+model KpiUnit {
+  id        String          @id @default(cuid())
+  name      String
+  symbol    String
+  position  String          @default("suffix")
+  sortOrder Int             @default(0)
+  kpis      KpiDefinition[]
+}
+
+model KpiDefinition {
+  id           String           @id @default(cuid())
+  name         String
+  dataSource   KpiDataSource    @default(MANUAL)
+  unitId       String
+  unit         KpiUnit          @relation(fields: [unitId], references: [id])
+  sortOrder    Int              @default(0)
+  isActive     Boolean          @default(true)
+  periodValues KpiPeriodValue[]
+}
+
+model KpiPeriodValue {
+  id              String        @id @default(cuid())
+  kpiDefinitionId String
+  kpiDefinition   KpiDefinition @relation(fields: [kpiDefinitionId], references: [id], onDelete: Cascade)
+  periodType      String
+  period          String
+  targetValue     Float         @default(0)
+  manualActual    Float?
+  /// 月実績の表示ソース: week_sum | month_manual（月レコードのみ）
+  actualDisplaySource String?   @default("week_sum")
+  @@unique([kpiDefinitionId, periodType, period])
+}
