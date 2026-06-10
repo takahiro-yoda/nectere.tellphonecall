@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import type { KpiDataSource } from "@prisma/client";
 import type { KpiActualDisplaySource, KpiMonthEditorData } from "@/lib/kpi";
-import { formatKpiValue } from "@/lib/kpi";
+import { formatKpiValue, isRateKpi } from "@/lib/kpi";
 import { getMonthPeriod } from "@/lib/dateUtils";
 import { KpiAchievementBar } from "./KpiAchievementRing";
 
@@ -122,6 +122,9 @@ export function KpiPeriodEditor() {
   }, [fetchMonthData]);
 
   const selectedKpi = kpis.find((k) => k.id === selectedKpiId);
+  const selectedIsRate = selectedKpi
+    ? isRateKpi(selectedKpi.dataSource as KpiDataSource, selectedKpi.unit.symbol)
+    : false;
 
   function handleEditorResponse(json: KpiMonthEditorData) {
     setError(null);
@@ -284,7 +287,9 @@ export function KpiPeriodEditor() {
     <section className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm">
       <h2 className="text-lg font-semibold text-zinc-900">目標・実績入力</h2>
       <p className="mt-1 text-sm text-zinc-500">
-        週実績は自動で合算されます。月実績は直接入力も可能で、表示するデータを選択できます。
+        {(data?.isRateType ?? selectedIsRate)
+          ? "％などの率系KPIは、月目標を各週に同じ値で設定し、週実績は平均で月に反映します。"
+          : "週実績は自動で合算されます。月実績は直接入力も可能で、表示するデータを選択できます。"}
       </p>
 
       <div className="mt-4 flex flex-wrap items-center gap-3">
@@ -365,14 +370,27 @@ export function KpiPeriodEditor() {
                     disabled={saving === "month"}
                     className="shrink-0 rounded-md bg-zinc-900 px-3 py-2 text-xs font-medium text-white hover:bg-zinc-800 disabled:opacity-50"
                   >
-                    {saving === "month" ? "…" : "週へ配分"}
+                    {saving === "month"
+                      ? "…"
+                      : data.isRateType
+                        ? "各週に反映"
+                        : "週へ配分"}
                   </button>
                 </div>
+                {data.isRateType ? (
+                  <p className="mt-1 text-xs text-zinc-500">
+                    率系は分割せず、各週に同じ目標を設定します
+                  </p>
+                ) : null}
               </div>
               <div>
-                <p className="text-xs font-medium text-zinc-600">週目標合計</p>
+                <p className="text-xs font-medium text-zinc-600">
+                  {data.isRateType ? "週目標（各週同値）" : "週目標合計"}
+                </p>
                 <p className="mt-1 text-lg font-bold tabular-nums text-zinc-700">
-                  {data.weekTargetSum.toLocaleString("ja-JP")}
+                  {data.isRateType
+                    ? data.weekTargetSum.toFixed(1)
+                    : data.weekTargetSum.toLocaleString("ja-JP")}
                   {data.unitSymbol}
                 </p>
               </div>
@@ -384,10 +402,14 @@ export function KpiPeriodEditor() {
 
                 <div className="mt-3 grid gap-4 sm:grid-cols-2">
                   <div>
-                    <p className="text-xs text-zinc-500">週合計（自動加算）</p>
+                    <p className="text-xs text-zinc-500">
+                      {data.isRateType ? "週平均（自動計算）" : "週合計（自動加算）"}
+                    </p>
                     <p className="mt-1 text-xl font-bold tabular-nums text-zinc-900">
                       {data.weekActualSum != null
-                        ? `${data.weekActualSum.toLocaleString("ja-JP")}${data.unitSymbol}`
+                        ? data.isRateType
+                          ? `${data.weekActualSum.toFixed(1)}${data.unitSymbol}`
+                          : `${data.weekActualSum.toLocaleString("ja-JP")}${data.unitSymbol}`
                         : "—"}
                     </p>
                   </div>
@@ -432,7 +454,7 @@ export function KpiPeriodEditor() {
                           : "border border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50"
                       }`}
                     >
-                      週合計
+                      {data.isRateType ? "週平均" : "週合計"}
                     </button>
                     <button
                       type="button"

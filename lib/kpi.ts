@@ -141,7 +141,10 @@ export function formatKpiValue(
   dataSource?: KpiDataSource
 ): string {
   if (value == null) return "—";
-  const isRate = dataSource === "APPOINTMENT_RATE" || dataSource === "RESPONSE_RATE";
+  const isRate =
+    dataSource === "APPOINTMENT_RATE" ||
+    dataSource === "RESPONSE_RATE" ||
+    unit.symbol === "%";
   const isInteger = unit.symbol === "件" || unit.symbol === "円" || unit.symbol === "回";
   const formatted = isRate
     ? value.toFixed(1)
@@ -387,7 +390,10 @@ export async function getKpiMonthEditorData(
   }
 
   const monthTarget = monthValue?.targetValue ?? null;
-  const weekTargetSum = weeks.reduce((s, w) => s + (w.target ?? 0), 0);
+  const weekTargetValues = weeks.map((w) => w.target ?? 0);
+  const weekTargetSum = isRate
+    ? (monthTarget ?? aggregateWeeksToMonth(weekTargetValues, true))
+    : weekTargetValues.reduce((s, v) => s + v, 0);
 
   const weekActualsForSum = weeks.map((w) => w.actual);
   const weekActualSum = kpi.dataSource === "MANUAL"
@@ -456,28 +462,31 @@ export async function setWeekTargetAndSyncMonth(
   });
   if (!kpi || target < 0) return null;
 
-  await upsertKpiTarget(kpiId, "week", weekPeriod, target);
-
   const weeksInMonth = getWeeksInMonth(monthPeriod);
   const weekPeriods = weeksInMonth.map((w) => w.period);
-
-  const weekValues = await prisma.kpiPeriodValue.findMany({
-    where: {
-      kpiDefinitionId: kpiId,
-      periodType: "week",
-      period: { in: weekPeriods },
-    },
-  });
-  const targetByPeriod = Object.fromEntries(weekValues.map((v) => [v.period, v.targetValue]));
-
-  // 未設定週は 0 として合算
-  const weekTargets = weekPeriods.map((p) =>
-    p === weekPeriod ? target : (targetByPeriod[p] ?? 0)
-  );
-
   const isRate = isRateKpi(kpi.dataSource, kpi.unit.symbol);
-  const monthTarget = aggregateWeeksToMonth(weekTargets, isRate);
-  await upsertKpiTarget(kpiId, "month", monthPeriod, monthTarget);
+
+  if (isRate) {
+    await upsertKpiTarget(kpiId, "month", monthPeriod, target);
+    await Promise.all(weekPeriods.map((p) => upsertKpiTarget(kpiId, "week", p, target)));
+  } else {
+    await upsertKpiTarget(kpiId, "week", weekPeriod, target);
+
+    const weekValues = await prisma.kpiPeriodValue.findMany({
+      where: {
+        kpiDefinitionId: kpiId,
+        periodType: "week",
+        period: { in: weekPeriods },
+      },
+    });
+    const targetByPeriod = Object.fromEntries(weekValues.map((v) => [v.period, v.targetValue]));
+
+    const weekTargets = weekPeriods.map((p) =>
+      p === weekPeriod ? target : (targetByPeriod[p] ?? 0)
+    );
+    const monthTarget = aggregateWeeksToMonth(weekTargets, false);
+    await upsertKpiTarget(kpiId, "month", monthPeriod, monthTarget);
+  }
 
   return getKpiMonthEditorData(kpiId, monthPeriod);
 }
